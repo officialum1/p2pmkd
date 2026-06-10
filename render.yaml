@@ -2,9 +2,10 @@ services:
   - type: web
     name: playerup-bumper-web
     runtime: python
-    plan: free
+    plan: pro
     buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput
-    startCommand: python manage.py migrate && gunicorn playerup_dashboard.wsgi:application --bind 0.0.0.0:$PORT
+    preDeployCommand: python manage.py migrate
+    startCommand: gunicorn playerup_dashboard.wsgi:application --bind 0.0.0.0:$PORT
     healthCheckPath: /
     autoDeployTrigger: commit
     envVars:
@@ -17,7 +18,7 @@ services:
   - type: worker
     name: playerup-bumper-worker
     runtime: python
-    plan: starter
+    plan: pro
     buildCommand: pip install -r requirements.txt
     startCommand: python manage.py run_bumper
     autoDeployTrigger: commit
@@ -46,4 +47,4 @@ databases:
   - name: playerup-db
     databaseName: playerup_dashboard
     user: playerup_user
-    plan: free
+    plan: pro-4gb
