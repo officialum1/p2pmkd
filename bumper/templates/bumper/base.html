@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}PlayerUp Auto-Bumper Dashboard{% endblock %}</title>
+    <!-- IBM Plex Fonts from Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg: #0b0d11;
+            --panel: #12151c;
+            --panel-2: #181c25;
+            --border: #232738;
+            --border-2: #2d3244;
+            --green: #22c55e;
+            --green-dim: #16a34a;
+            --green-glow: rgba(34, 197, 94, 0.12);
+            --red: #ef4444;
+            --yellow: #f59e0b;
+            --blue: #3b82f6;
+            --text: #dde1f0;
+            --text-dim: #8892ac;
+            --text-muted: #4a5270;
+            --mono: 'IBM Plex Mono', monospace;
+            --sans: 'IBM Plex Sans', sans-serif;
+            --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: var(--sans);
+            display: flex;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Sidebar Styling */
+        aside {
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            width: 220px;
+            background-color: var(--panel);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 24px 16px;
+            z-index: 100;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .brand svg {
+            width: 24px;
+            height: 24px;
+            fill: var(--green);
+            filter: drop-shadow(0 0 4px var(--green));
+        }
+
+        .brand-text {
+            font-weight: 700;
+            font-size: 1.1rem;
+            letter-spacing: 0.5px;
+            background: linear-gradient(135deg, var(--text), var(--text-dim));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .nav-menu {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 24px;
+            flex-grow: 1;
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 14px;
+            color: var(--text-dim);
+            text-decoration: none;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 500;
+            transition: var(--transition);
+        }
+
+        .nav-link:hover {
+            color: var(--text);
+            background-color: rgba(255, 255, 255, 0.03);
+        }
+
+        .nav-link.active {
+            color: var(--green);
+            background-color: var(--green-glow);
+            border-left: 3px solid var(--green);
+            padding-left: 11px;
+        }
+
+        .nav-link svg {
+            width: 18px;
+            height: 18px;
+            stroke-width: 2;
+        }
+
+        .status-footer {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 14px;
+            background-color: var(--panel-2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-family: var(--mono);
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background-color: var(--green);
+            border-radius: 50%;
+            display: inline-block;
+            box-shadow: 0 0 8px var(--green);
+            animation: pulse 2s infinite ease-in-out;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(0.9); opacity: 0.6; }
+            50% { transform: scale(1.1); opacity: 1; box-shadow: 0 0 10px var(--green); }
+            100% { transform: scale(0.9); opacity: 0.6; }
+        }
+
+        /* Main Content Styling */
+        main {
+            margin-left: 220px;
+            flex-grow: 1;
+            padding: 40px;
+            max-width: calc(100vw - 220px);
+        }
+
+        .page-header {
+            margin-bottom: 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .page-title h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--text);
+            letter-spacing: -0.5px;
+        }
+
+        .page-title p {
+            color: var(--text-dim);
+            font-size: 0.95rem;
+            margin-top: 4px;
+        }
+
+        /* Toast Styling */
+        #toastContainer {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 1000;
+        }
+
+        .toast {
+            min-width: 250px;
+            max-width: 400px;
+            padding: 14px 18px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+            animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            transition: var(--transition);
+        }
+
+        .toast-success {
+            background-color: #12151c;
+            border: 1px solid var(--green);
+            border-left: 5px solid var(--green);
+            color: var(--text);
+        }
+
+        .toast-error {
+            background-color: #12151c;
+            border: 1px solid var(--red);
+            border-left: 5px solid var(--red);
+            color: var(--text);
+        }
+
+        .toast-fade {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%) translateY(0); opacity: 0; }
+            to { transform: translateX(0) translateY(0); opacity: 1; }
+        }
+
+        /* Buttons & Badges Utility */
+        .btn {
+            background-color: var(--panel-2);
+            border: 1px solid var(--border-2);
+            color: var(--text);
+            padding: 10px 18px;
+            border-radius: 8px;
+            font-family: var(--sans);
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: var(--transition);
+        }
+
+        .btn:hover {
+            background-color: var(--border);
+            border-color: var(--text-muted);
+        }
+
+        .btn-green {
+            background-color: var(--green);
+            border-color: var(--green-dim);
+            color: #0b0d11;
+        }
+
+        .btn-green:hover {
+            background-color: var(--green-dim);
+            border-color: var(--green-dim);
+            color: #0b0d11;
+            box-shadow: 0 0 12px var(--green-glow);
+        }
+
+        .btn-green:disabled {
+            background-color: var(--text-muted);
+            border-color: var(--border);
+            color: var(--text-dim);
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.2px;
+            text-transform: uppercase;
+        }
+
+        .badge-green {
+            background-color: rgba(34, 197, 94, 0.1);
+            color: var(--green);
+            border: 1px solid rgba(34, 197, 94, 0.2);
+        }
+
+        .badge-yellow {
+            background-color: rgba(245, 158, 11, 0.1);
+            color: var(--yellow);
+            border: 1px solid rgba(245, 158, 11, 0.2);
+        }
+
+        .badge-red {
+            background-color: rgba(239, 68, 68, 0.1);
+            color: var(--red);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+
+        .badge-gray {
+            background-color: rgba(136, 146, 172, 0.1);
+            color: var(--text-dim);
+            border: 1px solid rgba(136, 146, 172, 0.2);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-2);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+    <!-- Sidebar Menu Navigation -->
+    <aside>
+        <div>
+            <div class="brand">
+                <!-- SVG Premium Star Icon -->
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 .587l3.668 7.431 8.2 1.192-5.934 5.787 1.4 8.168L12 18.896l-7.334 3.857 1.4-8.168L.132 9.21l8.2-1.192L12 .587z"/>
+                </svg>
+                <span class="brand-text">AutoBumper</span>
+            </div>
+            
+            <nav class="nav-menu">
+                <a href="{% url 'bumper:dashboard' %}" class="nav-link {% if request.resolver_match.view_name == 'bumper:dashboard' %}active{% endif %}">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2H6a2 2 0 01-2-2v-4zM14 16a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 01-2-2v-4z"></path>
+                    </svg>
+                    Dashboard
+                </a>
+                <a href="{% url 'bumper:logs' %}" class="nav-link {% if request.resolver_match.view_name == 'bumper:logs' %}active{% endif %}">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
+                    </svg>
+                    Audit Logs
+                </a>
+            </nav>
+        </div>
+
+        <div class="status-footer">
+            <span class="status-dot"></span>
+            <span>Scheduler Online</span>
+        </div>
+    </aside>
+
+    <!-- Main Workspace Frame -->
+    <main>
+        <div class="page-header">
+            <div class="page-title">
+                <h1>{% block header_title %}Auto-Bumper System{% endblock %}</h1>
+                <p>{% block header_subtitle %}Automated listings bumps & analytics dashboard{% endblock %}</p>
+            </div>
+            <div>
+                {% block header_actions %}{% endblock %}
+            </div>
+        </div>
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Hidden CSRF token to force-set cookie and provide DOM read fallback -->
+    <div style="display:none">{% csrf_token %}</div>
+
+    <!-- Global Floating Notifications -->
+    <div id="toastContainer"></div>
+
+    <!-- Core Generic Frontend Script -->
+    <script>
+        function getCsrf() {
+            const input = document.querySelector('[name=csrfmiddlewaretoken]');
+            if (input) return input.value;
+
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, 10) === 'csrftoken=') {
+                        cookieValue = decodeURIComponent(cookie.substring(10));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        async function post(url, data = {}) {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCsrf()
+                },
+                body: JSON.stringify(data)
+            });
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return await response.json();
+        }
+
+        function showToast(msg, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type === 'success' ? 'toast-success' : 'toast-error'}`;
+            toast.innerText = msg;
+            container.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.classList.add('toast-fade');
+                setTimeout(() => toast.remove(), 400);
+            }, 3500);
+        }
+    </script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

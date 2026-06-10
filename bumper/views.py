@@ -1,0 +1,346 @@
+import json
+import os
+from datetime import timedelta
+from django.shortcuts import render, get_object_or_404
+from django.http import JsonResponse
+from django.views.decorators.http import require_POST
+from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
+from django.utils import timezone
+from django.conf import settings
+from .models import Listing, BumpLog, ScrapeLog
+
+@ensure_csrf_cookie
+def dashboard(request):
+    """
+    Renders the Auto-Bumper dashboard with current listings, logs, and statistics.
+    """
+    listings = Listing.objects.all()
+    total_listings = listings.count()
+    
+    active_listings_qs = listings.filter(status='active', bump_enabled=True)
+    active_listings = active_listings_qs.count()
+    
+    due_now = sum(1 for l in active_listings_qs if l.bump_due)
+    
+    today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    bumps_today = BumpLog.objects.filter(success=True, timestamp__gte=today_start).count()
+    
+    recent_scrapes = ScrapeLog.objects.all()[:5]
+    
+    context = {
+        'listings': listings,
+        'total_listings': total_listings,
+        'active_listings': active_listings,
+        'bumps_today': bumps_today,
+        'due_now': due_now,
+        'recent_scrapes': recent_scrapes,
+    }
+    return render(request, 'bumper/dashboard.html', context)
+
+def logs(request):
+    """
+    Renders audit logs for scrapes and bumps with custom criteria filters.
+    """
+    bump_logs = BumpLog.objects.select_related('listing').all()
+    
+    listing_id = request.GET.get('listing')
+    if listing_id and listing_id.isdigit():
+        bump_logs = bump_logs.filter(listing_id=int(listing_id))
+        
+    status_filter = request.GET.get('status')
+    if status_filter == 'success':
+        bump_logs = bump_logs.filter(success=True)
+    elif status_filter == 'fail':
+        bump_logs = bump_logs.filter(success=False)
+        
+    listings = Listing.objects.only('id', 'title', 'thread_id').all()
+    
+    context = {
+        'bump_logs': bump_logs,
+        'listings': listings,
+        'selected_listing': listing_id,
+        'selected_status': status_filter,
+    }
+    return render(request, 'bumper/logs.html', context)
+
+@require_POST
+def bump_now(request, id):
+    """
+    AJAX POST endpoint to manually trigger a bump for a single listing.
+    """
+    try:
+        listing = get_object_or_404(Listing, id=id)
+        result = bump_listing(listing, triggered_by='manual')
+        return JsonResponse(result)
+    except Exception as e:
+        return JsonResponse({
+            'success': False, 
+            'message': f"Unexpected error: {str(e)}", 
+            'rate_limited': False
+        }, status=500)
+
+@require_POST
+def toggle_listing(request, id):
+    """
+    AJAX POST endpoint to toggle the auto-bumping flag of a single listing.
+    """
+    try:
+        listing = get_object_or_404(Listing, id=id)
+        listing.bump_enabled = not listing.bump_enabled
+        listing.save()
+        return JsonResponse({'bump_enabled': listing.bump_enabled})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+@require_POST
+def scrape_now(request):
+    """
+    AJAX POST endpoint to trigger an immediate listings scrape.
+    """
+    try:
+        result = scrape_my_listings()
+        return JsonResponse(result)
+    except Exception as e:
+        return JsonResponse({
+            'found': 0, 
+            'new': 0, 
+            'error': f"Unexpected error: {str(e)}"
+        }, status=500)
+
+@csrf_exempt
+@require_POST
+def sync_listings(request):
+    """
+    POST API endpoint called by the Chrome extension.
+    Accepts listings and optional PlayerUp session cookies to synchronize.
+    """
+    try:
+        data = json.loads(request.body)
+        listings_list = data.get('listings', [])
+        cookies_data = data.get('cookies', {})
+        
+        cookie_val = None
+        if isinstance(cookies_data, dict):
+            cookie_val = cookies_data.get('xf_session')
+        elif isinstance(cookies_data, list):
+            for c in cookies_data:
+                if c.get('name') == 'xf_session':
+                    cookie_val = c.get('value')
+                    break
+        
+        if cookie_val:
+            setattr(settings, 'PLAYERUP_SESSION_COOKIE', cookie_val)
+            
+            env_path = os.path.join(settings.BASE_DIR, '.env')
+            if os.path.exists(env_path):
+                try:
+                    with open(env_path, 'r') as f:
+                        lines = f.readlines()
+                    
+                    cookie_found = False
+                    for idx, line in enumerate(lines):
+                        if line.strip().startswith('PLAYERUP_SESSION_COOKIE='):
+                            lines[idx] = f'PLAYERUP_SESSION_COOKIE={cookie_val}\n'
+                            cookie_found = True
+                            break
+                    
+                    if not cookie_found:
+                        lines.append(f'PLAYERUP_SESSION_COOKIE={cookie_val}\n')
+                    
+                    with open(env_path, 'w') as f:
+                        f.writelines(lines)
+                except Exception:
+                    pass
+
+        # 2. Synchronize listing records
+        synced_count = 0
+        for l_data in listings_list:
+            thread_id = l_data.get('thread_id')
+            if not thread_id:
+                continue
+                
+            title = l_data.get('title', 'Untitled Listing')
+            url = l_data.get('url', '')
+            category = l_data.get('category', '')
+            price = l_data.get('price', '')
+            
+            listing, created = Listing.objects.update_or_create(
+                thread_id=thread_id,
+                defaults={
+                    'title': title,
+                    'url': url,
+                    'category': category,
+                    'price': price,
+                    'status': 'active',
+                }
+            )
+            if created:
+                listing.next_bump_due = timezone.now()
+                listing.save()
+                
+            synced_count += 1
+            
+        return JsonResponse({'success': True, 'synced': synced_count})
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'message': 'Invalid JSON request payload.'}, status=400)
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': f'Server error: {str(e)}'}, status=500)
+
+@csrf_exempt
+@require_POST
+def log_bump(request):
+    """
+    POST API endpoint called by the Chrome extension to record a browser-side bump attempt.
+    """
+    try:
+        data = json.loads(request.body)
+        listing_id = data.get('listing_id')
+        success = data.get('success', False)
+        message = data.get('message', '')
+        triggered_by = data.get('triggered_by', 'auto')
+
+        listing = get_object_or_404(Listing, id=listing_id)
+
+        if success:
+            listing.last_bumped = timezone.now()
+            listing.next_bump_due = timezone.now() + timedelta(seconds=listing.bump_interval_seconds)
+            listing.bump_count += 1
+            listing.save()
+
+        BumpLog.objects.create(
+            listing=listing,
+            success=success,
+            message=message,
+            triggered_by=triggered_by
+        )
+
+        return JsonResponse({'success': True})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+@csrf_exempt
+@require_POST
+def update_interval(request, id):
+    """
+    POST API endpoint called by the dashboard to customize a thread's specific bump interval.
+    """
+    try:
+        data = json.loads(request.body)
+        value = int(data.get('value', 30))
+        unit = data.get('unit', 'minutes')
+
+        if value <= 0:
+            return JsonResponse({'success': False, 'message': 'Interval value must be greater than zero.'}, status=400)
+
+        listing = get_object_or_404(Listing, id=id)
+
+        # Convert to seconds
+        if unit == 'seconds':
+            total_seconds = value
+        elif unit == 'hours':
+            total_seconds = value * 3600
+        elif unit == 'days':
+            total_seconds = value * 86400
+        else:  # minutes
+            total_seconds = value * 60
+
+        listing.bump_interval_seconds = total_seconds
+
+        # Recalculate next due time
+        if listing.last_bumped:
+            listing.next_bump_due = listing.last_bumped + timedelta(seconds=total_seconds)
+        else:
+            listing.next_bump_due = timezone.now() + timedelta(seconds=total_seconds)
+
+        listing.save()
+
+        local_time = timezone.localtime(listing.next_bump_due)
+        return JsonResponse({
+            'success': True, 
+            'next_due': local_time.strftime('%H:%M:%S')
+        })
+    except ValueError:
+        return JsonResponse({'success': False, 'message': 'Invalid numeric value.'}, status=400)
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+@csrf_exempt
+@require_POST
+def update_interval_bulk(request):
+    """
+    POST API endpoint called by the dashboard to customize specific listing schedules in bulk.
+    """
+    try:
+        data = json.loads(request.body)
+        ids = data.get('ids', [])
+        value = int(data.get('value', 30))
+        unit = data.get('unit', 'minutes')
+
+        if not ids:
+            return JsonResponse({'success': False, 'message': 'No threads were selected.'}, status=400)
+
+        if value <= 0:
+            return JsonResponse({'success': False, 'message': 'Interval value must be greater than zero.'}, status=400)
+
+        # Convert to seconds
+        if unit == 'seconds':
+            total_seconds = value
+        elif unit == 'hours':
+            total_seconds = value * 3600
+        elif unit == 'days':
+            total_seconds = value * 86400
+        else:  # minutes
+            total_seconds = value * 60
+
+        listings = Listing.objects.filter(id__in=ids)
+        updated_count = 0
+        for listing in listings:
+            listing.bump_interval_seconds = total_seconds
+            # Recalculate next due time
+            if listing.last_bumped:
+                listing.next_bump_due = listing.last_bumped + timedelta(seconds=total_seconds)
+            else:
+                listing.next_bump_due = timezone.now() + timedelta(seconds=total_seconds)
+            listing.save()
+            updated_count += 1
+
+        return JsonResponse({
+            'success': True,
+            'message': f'Successfully updated {updated_count} threads to {value} {unit}.'
+        })
+    except ValueError:
+        return JsonResponse({'success': False, 'message': 'Invalid numeric value.'}, status=400)
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+def live_status(request):
+    """
+    AJAX GET endpoint for client-side live polling and log stream updating.
+    """
+    try:
+        active_listings_qs = Listing.objects.filter(status='active', bump_enabled=True)
+        due_count = sum(1 for l in active_listings_qs if l.bump_due)
+        
+        today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        bumps_today = BumpLog.objects.filter(success=True, timestamp__gte=today_start).count()
+        
+        recent_logs = []
+        logs_qs = BumpLog.objects.select_related('listing').all()[:10]
+        
+        for log in logs_qs:
+            local_time = timezone.localtime(log.timestamp)
+            recent_logs.append({
+                'listing__title': log.listing.title,
+                'success': log.success,
+                'message': log.message,
+                'triggered_by': log.triggered_by,
+                'timestamp': local_time.strftime('%H:%M:%S')
+            })
+            
+        return JsonResponse({
+            'due_count': due_count,
+            'bumps_today': bumps_today,
+            'recent_logs': recent_logs
+        })
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)

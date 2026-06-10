@@ -1,0 +1,964 @@
+{% extends 'bumper/base.html' %}
+
+{% block title %}Dashboard | PlayerUp Auto-Bumper{% endblock %}
+
+{% block header_title %}System Dashboard{% endblock %}
+{% block header_subtitle %}Overview of forum listings, automated scheduling, and bumper actions{% endblock %}
+
+{% block header_actions %}
+<button id="btnScrape" class="btn" onclick="runScrape()">
+    <svg style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 7.89M9 11l3-3 3 3m-3-3v12"/>
+    </svg>
+    <span>Refresh Listings</span>
+</button>
+<button id="btnBumpAll" class="btn btn-green" onclick="bumpAll()">
+    <svg style="width:16px;height:16px;fill:currentColor" viewBox="0 0 24 24">
+        <path d="M12 2L2 22h20L12 2zm0 3.99L19.53 19H4.47L12 5.99zM11 10v4h2v-4h-2zm0 6v2h2v-2h-2z"/>
+    </svg>
+    <span>Bump All Due</span>
+</button>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Stats Grid */
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 24px;
+        margin-bottom: 40px;
+    }
+
+    .stat-card {
+        background-color: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 24px;
+        position: relative;
+        overflow: hidden;
+        transition: var(--transition);
+    }
+
+    .stat-card:hover {
+        border-color: var(--border-2);
+        transform: translateY(-2px);
+    }
+
+    .stat-label {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--text-dim);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .stat-value {
+        font-size: 2.2rem;
+        font-weight: 700;
+        color: var(--text);
+        margin-top: 10px;
+        font-family: var(--mono);
+    }
+
+    /* Table Container Styling */
+    .table-container {
+        background-color: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        overflow: hidden;
+        margin-bottom: 40px;
+    }
+
+    .table-header {
+        padding: 20px 24px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .table-header h2 {
+        font-size: 1.15rem;
+        font-weight: 700;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        text-align: left;
+    }
+
+    th {
+        background-color: var(--panel-2);
+        padding: 14px 24px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--text-dim);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border-bottom: 1px solid var(--border);
+    }
+
+    td {
+        padding: 16px 24px;
+        border-bottom: 1px solid var(--border);
+        font-size: 0.9rem;
+        color: var(--text);
+        vertical-align: middle;
+    }
+
+    tr:last-child td {
+        border-bottom: none;
+    }
+
+    tr.listing-row:hover {
+        background-color: rgba(255, 255, 255, 0.015);
+    }
+
+    .thread-cell {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .thread-title {
+        color: var(--text);
+        text-decoration: none;
+        font-weight: 600;
+        transition: var(--transition);
+        display: inline-flex;
+        align-items: center;
+    }
+
+    .thread-title:hover {
+        color: var(--green);
+    }
+
+    .thread-id-sub {
+        font-family: var(--mono);
+        font-size: 0.75rem;
+        color: var(--text-muted);
+    }
+
+    /* Switch toggle styles */
+    .switch {
+        position: relative;
+        display: inline-block;
+        width: 38px;
+        height: 20px;
+    }
+
+    .switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+
+    .slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background-color: var(--border-2);
+        transition: .3s cubic-bezier(0.4, 0, 0.2, 1);
+        border-radius: 20px;
+    }
+
+    .slider:before {
+        position: absolute;
+        content: "";
+        height: 14px;
+        width: 14px;
+        left: 3px;
+        bottom: 3px;
+        background-color: var(--text-dim);
+        transition: .3s cubic-bezier(0.4, 0, 0.2, 1);
+        border-radius: 50%;
+    }
+
+    input:checked + .slider {
+        background-color: var(--green);
+    }
+
+    input:checked + .slider:before {
+        transform: translateX(18px);
+        background-color: #0b0d11;
+    }
+
+    .due-dot {
+        width: 8px;
+        height: 8px;
+        background-color: var(--yellow);
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 8px;
+        flex-shrink: 0;
+        animation: pulse-yellow 1.5s infinite ease-in-out;
+    }
+
+    @keyframes pulse-yellow {
+        0% { transform: scale(0.85); opacity: 0.5; box-shadow: 0 0 0 rgba(245, 158, 11, 0); }
+        50% { transform: scale(1.2); opacity: 1; box-shadow: 0 0 10px rgba(245, 158, 11, 0.7); }
+        100% { transform: scale(0.85); opacity: 0.5; box-shadow: 0 0 0 rgba(245, 158, 11, 0); }
+    }
+
+    /* Live Panel */
+    .live-panel {
+        background-color: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 24px;
+    }
+
+    .live-panel-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 18px;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 12px;
+    }
+
+    .live-panel-header h3 {
+        font-size: 1.1rem;
+        font-weight: 700;
+    }
+
+    .live-logs-container {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        max-height: 350px;
+        overflow-y: auto;
+        font-family: var(--mono);
+        font-size: 0.85rem;
+    }
+
+    .live-log-item {
+        display: grid;
+        grid-template-columns: 80px 100px 1fr 100px;
+        align-items: center;
+        gap: 16px;
+        padding: 10px 14px;
+        background-color: var(--panel-2);
+        border: 1px solid var(--border-2);
+        border-radius: 6px;
+        transition: var(--transition);
+    }
+
+    .live-log-item:hover {
+        border-color: var(--text-muted);
+    }
+
+    .log-time {
+        color: var(--text-muted);
+    }
+
+    .log-success-check {
+        font-weight: bold;
+    }
+
+    .log-success-check.success {
+        color: var(--green);
+    }
+
+    .log-success-check.failed {
+        color: var(--red);
+    }
+
+    .log-title {
+        color: var(--text-dim);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    /* Spinners & Utility classes */
+    .spinning {
+        animation: spin 1s infinite linear;
+    }
+
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+
+    .btn.loading span {
+        visibility: hidden;
+    }
+
+    .btn.loading::after {
+        content: "";
+        position: absolute;
+        width: 16px;
+        height: 16px;
+        top: 50%;
+        left: 50%;
+        margin-top: -8px;
+        margin-left: -8px;
+        border: 2px solid transparent;
+        border-top-color: currentColor;
+        border-radius: 50%;
+        animation: spin 0.8s infinite linear;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 40px 0;
+        color: var(--text-muted);
+    }
+
+    /* Premium Interval Input & Select Styling */
+    .interval-value, .interval-unit {
+        transition: var(--transition);
+        outline: none;
+    }
+    .interval-value:hover, .interval-unit:hover {
+        border-color: var(--text-dim) !important;
+    }
+    .interval-value:focus, .interval-unit:focus {
+        border-color: var(--green) !important;
+        box-shadow: 0 0 8px var(--green-glow);
+    }
+
+    #btnBulkBump:hover {
+        background-color: #2563eb !important;
+        border-color: #2563eb !important;
+        box-shadow: 0 0 12px rgba(59, 130, 246, 0.4);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- High-Level Stats Panel -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-label">Total Listings</div>
+        <div class="stat-value">{{ total_listings }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Active & Enabled</div>
+        <div class="stat-value">{{ active_listings }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Due Now</div>
+        <div id="statDue" class="stat-value" style="color:var(--yellow)">{{ due_now }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Bumps Today</div>
+        <div id="statToday" class="stat-value" style="color:var(--green)">{{ bumps_today }}</div>
+    </div>
+</div>
+
+<!-- Main Listings Table -->
+<div class="table-container">
+    <div class="table-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; padding: 16px 24px;">
+        <h2>Monitored Forum Threads</h2>
+        <div id="bulkActionsPanel" style="display: none; align-items: center; gap: 10px; flex-wrap: wrap; background-color: var(--panel-2); border: 1px solid var(--border-2); padding: 8px 16px; border-radius: 8px;">
+            <span style="font-size: 0.8rem; color: var(--text-dim); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Bulk Interval:</span>
+            <input type="number" id="bulkIntervalVal" value="30" min="1" style="width: 56px; background-color: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 6px; font-family: var(--mono); font-size: 0.85rem; text-align: center; outline: none; transition: var(--transition);" onfocus="this.style.borderColor='var(--green)'" onblur="this.style.borderColor='var(--border)'">
+            <select id="bulkIntervalUnit" style="background-color: var(--bg); border: 1px solid var(--border); color: var(--text-dim); border-radius: 6px; padding: 6px; font-size: 0.8rem; font-weight: 500; outline: none; transition: var(--transition);" onfocus="this.style.borderColor='var(--green)'" onblur="this.style.borderColor='var(--border)'">
+                <option value="seconds">sec</option>
+                <option value="minutes" selected>min</option>
+                <option value="hours">hours</option>
+                <option value="days">days</option>
+            </select>
+            <button class="btn btn-sm btn-green" onclick="applyBulkInterval()" style="padding: 6px 12px; font-size: 0.8rem; font-weight: 600;">
+                Update Selected (<span id="selectedCount">0</span>)
+            </button>
+            <button id="btnBulkBump" class="btn btn-sm" onclick="bumpSelectedListings()" style="padding: 6px 12px; font-size: 0.8rem; font-weight: 600; background-color: var(--blue); border-color: var(--blue); color: #ffffff;">
+                Bump Selected
+            </button>
+        </div>
+    </div>
+    <div style="overflow-x: auto;">
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 40px; text-align: center; padding: 14px 16px;">
+                        <input type="checkbox" id="selectAllListings" onchange="toggleSelectAll(this)" style="accent-color: var(--green); cursor: pointer; width: 15px; height: 15px; border-radius: 4px; border: 1px solid var(--border-2); vertical-align: middle;">
+                    </th>
+                    <th>Thread</th>
+                    <th>Category</th>
+                    <th>Price</th>
+                    <th>Status</th>
+                    <th>Last Bumped</th>
+                    <th>Interval</th>
+                    <th style="text-align: center;">Bumps (24h / Total)</th>
+                    <th>Auto</th>
+                    <th style="text-align: right;">Action</th>
+                </tr>
+            </thead>
+            <tbody id="listingsTableBody">
+                {% if listings %}
+                    {% for listing in listings %}
+                    <tr class="listing-row {% if listing.bump_due %}tag-due{% endif %}" id="row-{{ listing.id }}" data-id="{{ listing.id }}">
+                        <td style="width: 40px; text-align: center; padding: 16px 16px; vertical-align: middle;">
+                            <input type="checkbox" class="row-selector" data-id="{{ listing.id }}" onchange="onRowSelectChange()" style="accent-color: var(--green); cursor: pointer; width: 14px; height: 14px; border-radius: 4px; border: 1px solid var(--border-2); vertical-align: middle;">
+                        </td>
+                        <td>
+                            <div class="thread-cell">
+                                <a href="{{ listing.url }}" target="_blank" class="thread-title">
+                                    {% if listing.bump_due %}
+                                    <span class="due-dot" title="Bump is due"></span>
+                                    {% endif %}
+                                    {{ listing.title }}
+                                </a>
+                                <span class="thread-id-sub">Thread ID: {{ listing.thread_id }}</span>
+                            </div>
+                        </td>
+                        <td>
+                            {% if listing.category %}
+                            <span class="badge badge-gray">{{ listing.category }}</span>
+                            {% else %}
+                            <span class="text-muted" style="color:var(--text-muted)">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if listing.price %}
+                            <span style="font-family:var(--mono);font-weight:600">{{ listing.price }}</span>
+                            {% else %}
+                            <span class="text-muted" style="color:var(--text-muted)">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if listing.status == 'active' %}
+                            <span class="badge badge-green">Active</span>
+                            {% elif listing.status == 'paused' %}
+                            <span class="badge badge-yellow">Paused</span>
+                            {% elif listing.status == 'sold' %}
+                            <span class="badge badge-red">Sold</span>
+                            {% else %}
+                            <span class="badge badge-gray">Unknown</span>
+                            {% endif %}
+                        </td>
+                        <td id="time-{{ listing.id }}" style="font-family:var(--mono);font-size:0.85rem">
+                            {{ listing.time_since_bump }}
+                        </td>
+                        <td>
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <input type="number" 
+                                       class="interval-value" 
+                                       value="{{ listing.interval_value_and_unit.0 }}" 
+                                       style="width: 56px; background-color: var(--panel-2); border: 1px solid var(--border-2); color: var(--text); border-radius: 6px; padding: 4px 6px; font-family: var(--mono); font-size: 0.85rem; text-align: center;" 
+                                       min="1" 
+                                       id="interval-val-{{ listing.id }}"
+                                       onchange="changeRowInterval({{ listing.id }})">
+                                <select class="interval-unit" 
+                                        style="background-color: var(--panel-2); border: 1px solid var(--border-2); color: var(--text-dim); border-radius: 6px; padding: 4px 6px; font-size: 0.8rem; font-weight: 500;"
+                                        id="interval-unit-{{ listing.id }}"
+                                        onchange="changeRowInterval({{ listing.id }})">
+                                    <option value="seconds" {% if listing.interval_value_and_unit.1 == 'seconds' %}selected{% endif %}>sec</option>
+                                    <option value="minutes" {% if listing.interval_value_and_unit.1 == 'minutes' %}selected{% endif %}>min</option>
+                                    <option value="hours" {% if listing.interval_value_and_unit.1 == 'hours' %}selected{% endif %}>hours</option>
+                                    <option value="days" {% if listing.interval_value_and_unit.1 == 'days' %}selected{% endif %}>days</option>
+                                </select>
+                            </div>
+                        </td>
+                        <td id="count-{{ listing.id }}" style="font-family:var(--mono);text-align:center;font-weight:500; vertical-align: middle;">
+                            <div style="display: flex; align-items: center; justify-content: center; gap: 6px;">
+                                <span class="badge {% if listing.bumps_last_24h >= 4 %}badge-red{% elif listing.bumps_last_24h >= 3 %}badge-yellow{% else %}badge-green{% endif %}" style="font-size:0.75rem; font-weight:600; padding: 2px 8px; border-radius: 12px; letter-spacing: 0.2px;" id="count-24h-badge-{{ listing.id }}">
+                                    {{ listing.bumps_last_24h }}/4
+                                </span>
+                                <span style="font-size:0.75rem; color:var(--text-dim);" id="count-total-span-{{ listing.id }}">
+                                    ({{ listing.bump_count }})
+                                </span>
+                            </div>
+                        </td>
+                        <td>
+                            <label class="switch">
+                                <input type="checkbox" {% if listing.bump_enabled %}checked{% endif %} onchange="toggleListing({{ listing.id }}, this)">
+                                <span class="slider"></span>
+                            </label>
+                        </td>
+                        <td style="text-align: right; position: relative;">
+                            <button id="btn-bump-{{ listing.id }}" class="btn btn-sm" onclick="bumpSingle({{ listing.id }})" {% if not listing.bump_enabled or listing.status != 'active' %}disabled{% endif %}>
+                                <span>Bump Now</span>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="10">
+                            <div class="empty-state">
+                                No threads found. Click "Refresh Listings" above to scan PlayerUp.
+                            </div>
+                        </td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Real-Time Bump Activity -->
+<div class="live-panel">
+    <div class="live-panel-header">
+        <h3>Recent Bump Activity</h3>
+        <span class="badge badge-green" style="font-family:var(--mono);font-size:0.7rem">Live Polling</span>
+    </div>
+    <div id="liveLog" class="live-logs-container">
+        <!-- Filled dynamically by fetchLiveStatus -->
+        <div class="empty-state" style="padding: 20px 0;">Loading activity logs...</div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // UTILITY COUNTDOWN DELAY TIMER
+    function sleepWithCountdown(seconds, buttonEl, originalHTML) {
+        return new Promise((resolve) => {
+            let remaining = seconds;
+            buttonEl.disabled = true;
+            
+            const interval = setInterval(() => {
+                remaining--;
+                if (remaining <= 0) {
+                    clearInterval(interval);
+                    buttonEl.innerHTML = originalHTML;
+                    buttonEl.disabled = false;
+                    resolve();
+                } else {
+                    buttonEl.innerHTML = `
+                        <svg class="spinning" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        <span>Next in ${remaining}s...</span>
+                    `;
+                }
+            }, 1000);
+        });
+    }
+
+    // AJAX MANUAL BUMP INDIVIDUAL
+    async function bumpSingle(id) {
+        const btn = document.getElementById(`btn-bump-${id}`);
+        if (!btn || btn.disabled) return;
+        
+        btn.classList.add('loading');
+        btn.disabled = true;
+        
+        return new Promise(async (resolve) => {
+            try {
+                const row = document.getElementById(`row-${id}`);
+                const titleLink = row.querySelector('.thread-title');
+                const url = titleLink.href;
+                
+                const width = 150, height = 150;
+                const left = window.screen.width - width;
+                const top = window.screen.height - height;
+                
+                console.log(`[Bumper] Opening 1x1 browser window for listing ${id}...`);
+                const bumpWindow = window.open(
+                    `${url}#bump-manual-${id}`,
+                    `bump_tab_${id}`,
+                    `width=${width},height=${height},left=${left},top=${top},menubar=no,status=no,toolbar=no,location=no`
+                );
+                
+                if (!bumpWindow) {
+                    showToast("Popup blocked! Falling back to server-side request...", "warning");
+                    const data = await post(`/bump/${id}/`);
+                    if (data.success) {
+                        showToast(data.message, 'success');
+                    } else {
+                        showToast(data.message, 'error');
+                    }
+                    resolve();
+                } else {
+                    showToast("Opened browser bump popup. Please wait for completion...", "success");
+                    
+                    const checkInterval = setInterval(async () => {
+                        if (bumpWindow.closed) {
+                            clearInterval(checkInterval);
+                            console.log(`[Bumper] Browser popup window closed.`);
+                            
+                            // Re-fetch live dashboard statistics
+                            await fetchLiveStatus();
+                            
+                            // Visually update the listing row data
+                            const badgeEl = document.getElementById(`count-24h-badge-${id}`);
+                            const totalEl = document.getElementById(`count-total-span-${id}`);
+                            if (badgeEl) {
+                                const current24h = parseInt(badgeEl.innerText.split('/')[0] || '0');
+                                const new24h = current24h + 1;
+                                badgeEl.innerText = `${new24h}/4`;
+                                
+                                badgeEl.className = "badge";
+                                if (new24h >= 4) {
+                                    badgeEl.classList.add('badge-red');
+                                    const bumpBtn = document.getElementById(`btn-bump-${id}`);
+                                    if (bumpBtn) bumpBtn.disabled = true;
+                                } else if (new24h >= 3) {
+                                    badgeEl.classList.add('badge-yellow');
+                                } else {
+                                    badgeEl.classList.add('badge-green');
+                                }
+                            }
+                            if (totalEl) {
+                                const currentTotal = parseInt(totalEl.innerText.replace('(', '').replace(')', '') || '0');
+                                totalEl.innerText = `(${currentTotal + 1})`;
+                            }
+                            const timeEl = document.getElementById(`time-${id}`);
+                            if (timeEl) {
+                                timeEl.innerText = "just now";
+                            }
+                            
+                            row.classList.remove('tag-due');
+                            const dueDot = row.querySelector('.due-dot');
+                            if (dueDot) dueDot.remove();
+                            
+                            resolve();
+                        }
+                    }, 500);
+                }
+            } catch (err) {
+                showToast(`Bump trigger failed: ${err.message}`, 'error');
+                resolve();
+            } finally {
+                setTimeout(() => {
+                    btn.classList.remove('loading');
+                    btn.disabled = false;
+                }, 6000);
+            }
+        });
+    }
+
+    // AJAX SEQUENCE MANUAL BUMP ALL DUE LISTINGS
+    async function bumpAll() {
+        const dueRows = document.querySelectorAll('.listing-row.tag-due');
+        if (dueRows.length === 0) {
+            showToast("No listings currently require a bump.", 'success');
+            return;
+        }
+        
+        const btnAll = document.getElementById('btnBumpAll');
+        btnAll.disabled = true;
+        btnAll.innerText = "Processing Bumps...";
+        
+        showToast(`Starting sequential bumps for ${dueRows.length} threads. Please wait.`, 'success');
+        
+        for (let i = 0; i < dueRows.length; i++) {
+            const row = dueRows[i];
+            const id = row.getAttribute('data-id');
+            showToast(`Bumping thread ${i + 1} of ${dueRows.length}...`, 'success');
+            await bumpSingle(id);
+            // Add safe human-like anti-flood delay (30 to 45 seconds) before proceeding to next listing
+            if (i < dueRows.length - 1) {
+                const delaySeconds = Math.floor(Math.random() * 15) + 30; // 30 to 45 seconds safety delay
+                showToast(`Bumping sequential thread ${i + 2} of ${dueRows.length} in ${delaySeconds} seconds.`, 'success');
+                const originalHTML = `
+                    <svg style="width:16px;height:16px;fill:currentColor" viewBox="0 0 24 24">
+                        <path d="M12 2L2 22h20L12 2zm0 3.99L19.53 19H4.47L12 5.99zM11 10v4h2v-4h-2zm0 6v2h2v-2h-2z"/>
+                    </svg>
+                    <span>Bump All Due</span>
+                `;
+                await sleepWithCountdown(delaySeconds, btnAll, originalHTML);
+            }
+        }
+        
+        btnAll.disabled = false;
+        btnAll.innerHTML = `
+            <svg style="width:16px;height:16px;fill:currentColor" viewBox="0 0 24 24">
+                <path d="M12 2L2 22h20L12 2zm0 3.99L19.53 19H4.47L12 5.99zM11 10v4h2v-4h-2zm0 6v2h2v-2h-2z"/>
+            </svg>
+            <span>Bump All Due</span>
+        `;
+        showToast("Finished processing due list.", 'success');
+    }
+
+    // AJAX TOGGLE AUTO-SCHEDULER STATUS
+    async function toggleListing(id, checkbox) {
+        checkbox.disabled = true;
+        try {
+            const data = await post(`/toggle/${id}/`);
+            showToast(`Auto-bumping ${data.bump_enabled ? 'enabled' : 'disabled'} for this thread.`, 'success');
+            
+            // Toggle corresponding row button state
+            const btn = document.getElementById(`btn-bump-${id}`);
+            if (btn) {
+                btn.disabled = !data.bump_enabled;
+            }
+            await fetchLiveStatus();
+        } catch (err) {
+            showToast(`Toggle failed: ${err.message}`, 'error');
+            checkbox.checked = !checkbox.checked;
+        } finally {
+            checkbox.disabled = false;
+        }
+    }
+
+    // AJAX UPDATE CUSTOM BUMP INTERVAL
+    async function changeRowInterval(id) {
+        const valEl = document.getElementById(`interval-val-${id}`);
+        const unitEl = document.getElementById(`interval-unit-${id}`);
+        if (!valEl || !unitEl) return;
+
+        const value = parseInt(valEl.value || '1');
+        const unit = unitEl.value;
+
+        if (isNaN(value) || value <= 0) {
+            showToast("Please enter a valid interval greater than 0.", "error");
+            return;
+        }
+
+        try {
+            valEl.disabled = true;
+            unitEl.disabled = true;
+
+            const res = await post(`/api/update-interval/${id}/`, {
+                value: value,
+                unit: unit
+            });
+
+            if (res.success) {
+                showToast(`Interval updated. Next bump scheduled for ${res.next_due}`, "success");
+                await fetchLiveStatus();
+            } else {
+                showToast(`Update failed: ${res.message}`, "error");
+            }
+        } catch (err) {
+            showToast(`Update failed: ${err.message}`, "error");
+        } finally {
+            valEl.disabled = false;
+            unitEl.disabled = false;
+        }
+    }
+
+    // SELECT / DESELECT ALL LISTINGS
+    function toggleSelectAll(master) {
+        const checkboxes = document.querySelectorAll('.row-selector');
+        checkboxes.forEach(cb => {
+            cb.checked = master.checked;
+        });
+        onRowSelectChange();
+    }
+
+    // DYNAMIC BULK ACTION PANEL DISPLAY
+    function onRowSelectChange() {
+        const checkboxes = document.querySelectorAll('.row-selector:checked');
+        const count = checkboxes.length;
+        const panel = document.getElementById('bulkActionsPanel');
+        const countSpan = document.getElementById('selectedCount');
+
+        if (count > 0) {
+            panel.style.display = 'flex';
+            countSpan.innerText = count;
+        } else {
+            panel.style.display = 'none';
+            countSpan.innerText = '0';
+            
+            const master = document.getElementById('selectAllListings');
+            if (master) master.checked = false;
+        }
+    }
+
+    // AJAX BULK INTERVAL UPDATE
+    async function applyBulkInterval() {
+        const checkedBoxes = document.querySelectorAll('.row-selector:checked');
+        if (checkedBoxes.length === 0) {
+            showToast("No threads were selected for bulk update.", "error");
+            return;
+        }
+
+        const ids = Array.from(checkedBoxes).map(cb => parseInt(cb.getAttribute('data-id')));
+        const bulkValEl = document.getElementById('bulkIntervalVal');
+        const bulkUnitEl = document.getElementById('bulkIntervalUnit');
+        if (!bulkValEl || !bulkUnitEl) return;
+
+        const value = parseInt(bulkValEl.value || '1');
+        const unit = bulkUnitEl.value;
+
+        if (isNaN(value) || value <= 0) {
+            showToast("Please enter a valid interval greater than 0.", "error");
+            return;
+        }
+
+        try {
+            bulkValEl.disabled = true;
+            bulkUnitEl.disabled = true;
+
+            const res = await post('/api/update-interval-bulk/', {
+                ids: ids,
+                value: value,
+                unit: unit
+            });
+
+            if (res.success) {
+                showToast(res.message, "success");
+
+                ids.forEach(id => {
+                    const rowValEl = document.getElementById(`interval-val-${id}`);
+                    const rowUnitEl = document.getElementById(`interval-unit-${id}`);
+                    if (rowValEl) rowValEl.value = value;
+                    if (rowUnitEl) rowUnitEl.value = unit;
+                });
+
+                const masterCheckbox = document.getElementById('selectAllListings');
+                if (masterCheckbox) {
+                    masterCheckbox.checked = false;
+                    toggleSelectAll(masterCheckbox);
+                }
+                await fetchLiveStatus();
+            } else {
+                showToast(`Bulk update failed: ${res.message}`, "error");
+            }
+        } catch (err) {
+            showToast(`Bulk update failed: ${err.message}`, "error");
+        } finally {
+            bulkValEl.disabled = false;
+            bulkUnitEl.disabled = false;
+        }
+    }
+
+    // AJAX SEQUENTIAL 1-BY-1 BUMP SELECTED LISTINGS
+    async function bumpSelectedListings() {
+        const checkedBoxes = document.querySelectorAll('.row-selector:checked');
+        if (checkedBoxes.length === 0) {
+            showToast("No threads were selected for bumping.", "error");
+            return;
+        }
+
+        const ids = Array.from(checkedBoxes).map(cb => parseInt(cb.getAttribute('data-id')));
+        const btnAll = document.getElementById('btnBulkBump');
+        if (!btnAll || btnAll.disabled) return;
+
+        btnAll.disabled = true;
+        btnAll.innerText = "Processing Bumps...";
+
+        showToast(`Starting sequential 1-by-1 bumps for ${ids.length} selected threads. Please wait...`, 'success');
+
+        try {
+            for (let i = 0; i < ids.length; i++) {
+                const id = ids[i];
+                showToast(`Processing thread ${i + 1} of ${ids.length}...`, 'success');
+
+                // Await individual bump tab completion
+                await bumpSingle(id);
+
+                // Add safe human-like anti-flood delay (30 to 45 seconds) before proceeding to next listing
+                if (i < ids.length - 1) {
+                    const delaySeconds = Math.floor(Math.random() * 15) + 30; // 30 to 45 seconds safety delay
+                    showToast(`Bumping sequential thread ${i + 2} of ${ids.length} in ${delaySeconds} seconds.`, 'success');
+                    await sleepWithCountdown(delaySeconds, btnAll, "Bump Selected");
+                }
+            }
+
+            showToast("Finished bulk bump sequence successfully!", 'success');
+
+            const masterCheckbox = document.getElementById('selectAllListings');
+            if (masterCheckbox) {
+                masterCheckbox.checked = false;
+                toggleSelectAll(masterCheckbox);
+            }
+        } catch (err) {
+            showToast(`Bulk bumping sequence failed: ${err.message}`, 'error');
+        } finally {
+            btnAll.disabled = false;
+            btnAll.innerHTML = `Bump Selected`;
+        }
+    }
+
+    // AJAX SCRAPING CONTROLLER (BROWSER-SIDE CLOUDFLARE BYPASS)
+    async function runScrape() {
+        const btn = document.getElementById('btnScrape');
+        btn.disabled = true;
+        btn.innerHTML = `
+            <svg class="spinning" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 7.89M9 11l3-3 3 3m-3-3v12"/>
+            </svg>
+            <span>Scraping...</span>
+        `;
+        
+        try {
+            showToast("Opening PlayerUp threads list in background to bypass Cloudflare...", "success");
+            
+            // Open a background tab to trigger secure extension-based scraping
+            const width = 150, height = 150;
+            const left = window.screen.width - width;
+            const top = window.screen.height - height;
+            
+            const scrapeWindow = window.open(
+                "https://www.playerup.com/account/threads#sync-auto", 
+                "scrape_sync_tab", 
+                `width=${width},height=${height},left=${left},top=${top},menubar=no,status=no,toolbar=no,location=no`
+            );
+            
+            if (!scrapeWindow) {
+                showToast("Popup blocked! Click the popup blocker icon in the URL bar to allow dashboard popups.", "error");
+            } else {
+                const pollInterval = setInterval(() => {
+                    if (scrapeWindow.closed) {
+                        clearInterval(pollInterval);
+                        showToast("Successfully refreshed listings from PlayerUp!", "success");
+                        // Reload dashboard page to render newly synchronized items
+                        setTimeout(() => location.reload(), 800);
+                    }
+                }, 500);
+            }
+        } catch (err) {
+            showToast(`Scrape failed: ${err.message}`, 'error');
+        } finally {
+            setTimeout(() => {
+                btn.disabled = false;
+                btn.innerHTML = `
+                    <svg style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 7.89M9 11l3-3 3 3m-3-3v12"/>
+                    </svg>
+                    <span>Refresh Listings</span>
+                `;
+            }, 6000);
+        }
+    }
+
+    // AJAX DYNAMIC METRICS POLLING
+    async function fetchLiveStatus() {
+        try {
+            const r = await fetch('/live-status/');
+            if (!r.ok) return;
+            const data = await r.json();
+            
+            // Update upper status counters
+            document.getElementById('statDue').innerText = data.due_count;
+            document.getElementById('statToday').innerText = data.bumps_today;
+            
+            // Build and insert activity log panel content
+            const liveLog = document.getElementById('liveLog');
+            if (data.recent_logs.length === 0) {
+                liveLog.innerHTML = `<div class="empty-state" style="padding: 20px 0;">No logs are available yet.</div>`;
+                return;
+            }
+            
+            let html = '';
+            data.recent_logs.forEach(log => {
+                const mark = log.success ? '✓ SUCCESS' : '✗ FAILED';
+                const successClass = log.success ? 'success' : 'failed';
+                const triggerBadge = log.triggered_by === 'auto' ? 'badge-green' : 'badge-yellow';
+                
+                html += `
+                    <div class="live-log-item">
+                        <span class="log-time">${log.timestamp}</span>
+                        <span class="log-success-check ${successClass}">${mark}</span>
+                        <span class="log-title" title="${log.listing__title}">${log.listing__title}</span>
+                        <span style="text-align:right">
+                            <span class="badge ${triggerBadge}" style="font-size:0.65rem;padding:2px 6px;">${log.triggered_by}</span>
+                        </span>
+                    </div>
+                `;
+            });
+            liveLog.innerHTML = html;
+        } catch (err) {
+            console.error("Failed to fetch live stats", err);
+        }
+    }
+
+    // Start polling automatically
+    document.addEventListener("DOMContentLoaded", () => {
+        fetchLiveStatus();
+        setInterval(fetchLiveStatus, 10000);
+    });
+</script>
+{% endblock %}
