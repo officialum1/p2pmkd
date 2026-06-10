@@ -4,8 +4,7 @@ services:
     runtime: python
     plan: free
     buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput
-    preDeployCommand: python manage.py migrate
-    startCommand: gunicorn playerup_dashboard.wsgi:application --bind 0.0.0.0:$PORT
+    startCommand: python manage.py migrate && gunicorn playerup_dashboard.wsgi:application --bind 0.0.0.0:$PORT
     healthCheckPath: /
     autoDeployTrigger: commit
     envVars:
