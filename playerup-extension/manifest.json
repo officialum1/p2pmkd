@@ -1,0 +1,42 @@
+{
+  "manifest_version": 3,
+  "name": "PlayerUp Auto-Bumper Sync",
+  "version": "1.0.0",
+  "description": "Automatically syncs your PlayerUp listings to auto-bumper backend",
+  "permissions": [
+    "cookies",
+    "storage",
+    "tabs",
+    "notifications",
+    "alarms"
+  ],
+  "host_permissions": [
+    "https://www.playerup.com/*",
+    "https://*.onrender.com/*",
+    "http://127.0.0.1/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.playerup.com/members/*/recent-content*",
+        "https://www.playerup.com/account/recent-content*",
+        "https://www.playerup.com/account/threads*",
+        "https://www.playerup.com/threads/*",
+        "https://www.playerup.com/search/*"
+      ],
+      "js": ["config.js", "content-script.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  }
+}

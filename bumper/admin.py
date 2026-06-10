@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Listing, BumpLog, ScrapeLog
+from .models import Listing, BumpLog, ScrapeLog, PlayerUpCredential
 
 @admin.register(Listing)
 class ListingAdmin(admin.ModelAdmin):
@@ -31,3 +31,9 @@ class ScrapeLogAdmin(admin.ModelAdmin):
     list_display = ('timestamp', 'success', 'listings_found', 'listings_new', 'message')
     list_filter = ('success', 'timestamp')
     search_fields = ('message',)
+
+
+@admin.register(PlayerUpCredential)
+class PlayerUpCredentialAdmin(admin.ModelAdmin):
+    list_display = ('username', 'updated_at')
+    readonly_fields = ('updated_at',)

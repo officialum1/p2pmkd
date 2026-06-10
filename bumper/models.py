@@ -121,3 +121,18 @@ class ScrapeLog(models.Model):
 
     class Meta:
         ordering = ['-timestamp']
+
+
+class PlayerUpCredential(models.Model):
+    singleton_key = models.CharField(max_length=50, unique=True, default='default')
+    username = models.CharField(max_length=255, blank=True, default='')
+    xf_session = models.TextField(blank=True, default='')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    @classmethod
+    def current(cls):
+        credential, _ = cls.objects.get_or_create(singleton_key='default')
+        return credential
+
+    def __str__(self):
+        return f"PlayerUp credentials for {self.username or 'unconfigured account'}"

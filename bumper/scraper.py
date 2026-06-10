@@ -6,7 +6,22 @@ from bs4 import BeautifulSoup
 from django.conf import settings
 from django.utils import timezone
 from datetime import timedelta
-from .models import Listing, BumpLog, ScrapeLog
+from .models import Listing, BumpLog, ScrapeLog, PlayerUpCredential
+
+
+def get_playerup_credentials():
+    username = getattr(settings, 'PLAYERUP_USERNAME', '')
+    cookie_val = getattr(settings, 'PLAYERUP_SESSION_COOKIE', '')
+
+    try:
+        credential = PlayerUpCredential.objects.filter(singleton_key='default').first()
+        if credential:
+            username = credential.username or username
+            cookie_val = credential.xf_session or cookie_val
+    except Exception:
+        pass
+
+    return username, cookie_val
 
 def get_playerup_session():
     """
@@ -20,7 +35,7 @@ def get_playerup_session():
         'Referer': 'https://www.playerup.com/',
         'Origin': 'https://www.playerup.com',
     })
-    cookie_val = getattr(settings, 'PLAYERUP_SESSION_COOKIE', '')
+    _, cookie_val = get_playerup_credentials()
     if cookie_val:
         session.cookies.set('xf_session', cookie_val, domain='www.playerup.com')
     return session
@@ -29,7 +44,7 @@ def scrape_my_listings() -> dict:
     """
     Scrapes user's threads from PlayerUp recent content pages.
     """
-    username = getattr(settings, 'PLAYERUP_USERNAME', '')
+    username, _ = get_playerup_credentials()
     if not username:
         err_msg = "PLAYERUP_USERNAME is not configured in settings."
         ScrapeLog.objects.create(success=False, message=err_msg)

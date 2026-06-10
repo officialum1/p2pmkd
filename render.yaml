@@ -20,7 +20,7 @@ services:
     runtime: python
     plan: pro
     buildCommand: pip install -r requirements.txt
-    startCommand: python manage.py run_bumper
+    startCommand: python manage.py migrate && python manage.py run_bumper
     autoDeployTrigger: commit
     envVars:
       - fromGroup: playerup-bumper-env

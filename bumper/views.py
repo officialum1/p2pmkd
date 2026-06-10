@@ -7,7 +7,7 @@ from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 from django.utils import timezone
 from django.conf import settings
-from .models import Listing, BumpLog, ScrapeLog
+from .models import Listing, BumpLog, ScrapeLog, PlayerUpCredential
 
 @ensure_csrf_cookie
 def dashboard(request):
@@ -118,6 +118,7 @@ def sync_listings(request):
         data = json.loads(request.body)
         listings_list = data.get('listings', [])
         cookies_data = data.get('cookies', {})
+        username = (data.get('username') or data.get('playerup_username') or '').strip()
         
         cookie_val = None
         if isinstance(cookies_data, dict):
@@ -130,22 +131,41 @@ def sync_listings(request):
         
         if cookie_val:
             setattr(settings, 'PLAYERUP_SESSION_COOKIE', cookie_val)
-            
+
+        if username:
+            setattr(settings, 'PLAYERUP_USERNAME', username)
+
+        if cookie_val or username:
+            credential = PlayerUpCredential.current()
+            if cookie_val:
+                credential.xf_session = cookie_val
+            if username:
+                credential.username = username
+            credential.save()
+
+        if cookie_val or username:
             env_path = os.path.join(settings.BASE_DIR, '.env')
             if os.path.exists(env_path):
                 try:
                     with open(env_path, 'r') as f:
                         lines = f.readlines()
-                    
+
                     cookie_found = False
+                    username_found = False
                     for idx, line in enumerate(lines):
                         if line.strip().startswith('PLAYERUP_SESSION_COOKIE='):
-                            lines[idx] = f'PLAYERUP_SESSION_COOKIE={cookie_val}\n'
+                            if cookie_val:
+                                lines[idx] = f'PLAYERUP_SESSION_COOKIE={cookie_val}\n'
                             cookie_found = True
-                            break
-                    
-                    if not cookie_found:
+                        elif line.strip().startswith('PLAYERUP_USERNAME='):
+                            if username:
+                                lines[idx] = f'PLAYERUP_USERNAME={username}\n'
+                            username_found = True
+
+                    if cookie_val and not cookie_found:
                         lines.append(f'PLAYERUP_SESSION_COOKIE={cookie_val}\n')
+                    if username and not username_found:
+                        lines.append(f'PLAYERUP_USERNAME={username}\n')
                     
                     with open(env_path, 'w') as f:
                         f.writelines(lines)
