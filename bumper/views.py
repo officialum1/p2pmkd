@@ -220,11 +220,16 @@ def log_bump(request):
         triggered_by = data.get('triggered_by', 'auto')
 
         listing = get_object_or_404(Listing, id=listing_id)
+        disable_listing = data.get('disable_listing', False)
 
         if success:
             listing.last_bumped = timezone.now()
             listing.next_bump_due = timezone.now() + timedelta(seconds=listing.bump_interval_seconds)
             listing.bump_count += 1
+            listing.save()
+        elif disable_listing:
+            listing.bump_enabled = False
+            listing.status = 'paused'
             listing.save()
 
         BumpLog.objects.create(
