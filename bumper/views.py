@@ -357,10 +357,13 @@ def live_status(request):
                 'timestamp': local_time.strftime('%H:%M:%S')
             })
             
+        due_listings_ids = [l.id for l in active_listings_qs if l.bump_due]
+            
         return JsonResponse({
             'due_count': due_count,
             'bumps_today': bumps_today,
-            'recent_logs': recent_logs
+            'recent_logs': recent_logs,
+            'due_listings_ids': due_listings_ids
         })
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)

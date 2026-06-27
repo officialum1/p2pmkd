@@ -6,6 +6,16 @@
 {% block header_subtitle %}Overview of forum listings, automated scheduling, and bumper actions{% endblock %}
 
 {% block header_actions %}
+<div style="display: inline-flex; align-items: center; gap: 10px; background-color: var(--panel-2); border: 1px solid var(--border); padding: 8px 16px; border-radius: 8px; margin-right: 12px; vertical-align: middle;">
+    <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; display: inline-flex; align-items: center; gap: 6px;">
+        <span id="autoBumperDot" style="width: 8px; height: 8px; display: inline-block; border-radius: 50%; background-color: var(--text-muted); transition: var(--transition);"></span>
+        Browser Auto-Bumper
+    </span>
+    <label class="switch">
+        <input type="checkbox" id="toggleAutoBumper" onchange="toggleBrowserAutoBumper(this)">
+        <span class="slider"></span>
+    </label>
+</div>
 <button id="btnScrape" class="btn" onclick="runScrape()">
     <svg style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 7.89M9 11l3-3 3 3m-3-3v12"/>
@@ -950,13 +960,88 @@
                 `;
             });
             liveLog.innerHTML = html;
+            
+            if (data.due_listings_ids && data.due_listings_ids.length > 0) {
+                checkAndAutoBump(data.due_listings_ids);
+            }
         } catch (err) {
             console.error("Failed to fetch live stats", err);
         }
     }
 
+    // BROWSER-SIDE AUTO-BUMPER LOGIC
+    let isBumpingActive = false;
+
+    function toggleBrowserAutoBumper(checkbox) {
+        localStorage.setItem('browserAutoBumperEnabled', checkbox.checked ? 'true' : 'false');
+        updateAutoBumperUI(checkbox.checked);
+        
+        if (checkbox.checked) {
+            showToast("Browser Auto-Bumper enabled! Keeping tab open will auto-bump threads.", "success");
+            fetchLiveStatus();
+        } else {
+            showToast("Browser Auto-Bumper disabled.", "warning");
+        }
+    }
+
+    function updateAutoBumperUI(enabled) {
+        const dot = document.getElementById('autoBumperDot');
+        if (!dot) return;
+        
+        if (enabled) {
+            dot.style.backgroundColor = 'var(--green)';
+            dot.style.boxShadow = '0 0 8px var(--green)';
+            dot.style.animation = 'pulse 2s infinite ease-in-out';
+        } else {
+            dot.style.backgroundColor = 'var(--text-muted)';
+            dot.style.boxShadow = 'none';
+            dot.style.animation = 'none';
+        }
+    }
+
+    async function checkAndAutoBump(dueListingIds) {
+        const enabled = localStorage.getItem('browserAutoBumperEnabled') === 'true';
+        if (!enabled || isBumpingActive || dueListingIds.length === 0) return;
+
+        isBumpingActive = true;
+        showToast(`[Auto-Bumper] Detected ${dueListingIds.length} due threads. Starting automatic sequential bumps...`, "success");
+
+        try {
+            for (let i = 0; i < dueListingIds.length; i++) {
+                if (localStorage.getItem('browserAutoBumperEnabled') !== 'true') {
+                    showToast("[Auto-Bumper] Sequence aborted: Auto-Bumper disabled.", "warning");
+                    break;
+                }
+
+                const id = dueListingIds[i];
+                showToast(`[Auto-Bumper] Automatically processing thread ${i + 1} of ${dueListingIds.length}...`, "success");
+
+                await bumpSingle(id);
+
+                if (i < dueListingIds.length - 1) {
+                    const delaySeconds = Math.floor(Math.random() * 15) + 30; // 30-45 seconds
+                    showToast(`[Auto-Bumper] Next automated thread in ${delaySeconds} seconds.`, "success");
+                    await new Promise(resolve => setTimeout(resolve, delaySeconds * 1000));
+                }
+            }
+        } catch (err) {
+            console.error("[Auto-Bumper] Sequential loop error:", err);
+            showToast(`[Auto-Bumper] Error encountered: ${err.message}`, "error");
+        } finally {
+            isBumpingActive = false;
+            await fetchLiveStatus();
+        }
+    }
+
     // Start polling automatically
     document.addEventListener("DOMContentLoaded", () => {
+        const autoBumperEnabled = localStorage.getItem('browserAutoBumperEnabled') === 'true';
+        const checkbox = document.getElementById('toggleAutoBumper');
+        if (checkbox) {
+            checkbox.checked = autoBumperEnabled;
+        }
+        updateAutoBumperUI(autoBumperEnabled);
+
         fetchLiveStatus();
         setInterval(fetchLiveStatus, 10000);
     });
