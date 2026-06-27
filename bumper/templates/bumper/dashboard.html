@@ -12,7 +12,7 @@
         Browser Auto-Bumper
     </span>
     <label class="switch">
-        <input type="checkbox" id="toggleAutoBumper" onchange="toggleBrowserAutoBumper(this)">
+        <input type="checkbox" id="toggleAutoBumper" onchange="toggleBrowserAutoBumper(this)" {% if browser_auto_bumper_enabled %}checked{% endif %}>
         <span class="slider"></span>
     </label>
 </div>
@@ -975,8 +975,11 @@
             });
             liveLog.innerHTML = html;
             
-            if (data.due_listings_ids && data.due_listings_ids.length > 0) {
-                checkAndAutoBump(data.due_listings_ids);
+            // Sync switch state if changed from another session
+            const checkbox = document.getElementById('toggleAutoBumper');
+            if (checkbox && checkbox.checked !== data.browser_auto_bumper_enabled) {
+                checkbox.checked = data.browser_auto_bumper_enabled;
+                updateAutoBumperUI(data.browser_auto_bumper_enabled);
             }
         } catch (err) {
             console.error("Failed to fetch live stats", err);
@@ -984,17 +987,25 @@
     }
 
     // BROWSER-SIDE AUTO-BUMPER LOGIC
-    let isBumpingActive = false;
-
-    function toggleBrowserAutoBumper(checkbox) {
-        localStorage.setItem('browserAutoBumperEnabled', checkbox.checked ? 'true' : 'false');
-        updateAutoBumperUI(checkbox.checked);
-        
-        if (checkbox.checked) {
-            showToast("Browser Auto-Bumper enabled! Keeping tab open will auto-bump threads.", "success");
-            fetchLiveStatus();
-        } else {
-            showToast("Browser Auto-Bumper disabled.", "warning");
+    async function toggleBrowserAutoBumper(checkbox) {
+        try {
+            updateAutoBumperUI(checkbox.checked);
+            const res = await post('/api/toggle-auto-bumper/', { enabled: checkbox.checked });
+            if (res.success) {
+                if (res.enabled) {
+                    showToast("Extension Background Auto-Bumper enabled! (No dashboard tab required)", "success");
+                } else {
+                    showToast("Extension Background Auto-Bumper disabled.", "warning");
+                }
+            } else {
+                showToast("Failed to toggle setting: " + res.message, "error");
+                checkbox.checked = !checkbox.checked;
+                updateAutoBumperUI(checkbox.checked);
+            }
+        } catch (err) {
+            showToast("Error updating toggle: " + err.message, "error");
+            checkbox.checked = !checkbox.checked;
+            updateAutoBumperUI(checkbox.checked);
         }
     }
 
@@ -1013,48 +1024,12 @@
         }
     }
 
-    async function checkAndAutoBump(dueListingIds) {
-        const enabled = localStorage.getItem('browserAutoBumperEnabled') === 'true';
-        if (!enabled || isBumpingActive || dueListingIds.length === 0) return;
-
-        isBumpingActive = true;
-        showToast(`[Auto-Bumper] Detected ${dueListingIds.length} due threads. Starting automatic sequential bumps...`, "success");
-
-        try {
-            for (let i = 0; i < dueListingIds.length; i++) {
-                if (localStorage.getItem('browserAutoBumperEnabled') !== 'true') {
-                    showToast("[Auto-Bumper] Sequence aborted: Auto-Bumper disabled.", "warning");
-                    break;
-                }
-
-                const id = dueListingIds[i];
-                showToast(`[Auto-Bumper] Automatically processing thread ${i + 1} of ${dueListingIds.length}...`, "success");
-
-                await bumpSingle(id, 'auto');
-
-                if (i < dueListingIds.length - 1) {
-                    const delaySeconds = Math.floor(Math.random() * 15) + 30; // 30-45 seconds
-                    showToast(`[Auto-Bumper] Next automated thread in ${delaySeconds} seconds.`, "success");
-                    await new Promise(resolve => setTimeout(resolve, delaySeconds * 1000));
-                }
-            }
-        } catch (err) {
-            console.error("[Auto-Bumper] Sequential loop error:", err);
-            showToast(`[Auto-Bumper] Error encountered: ${err.message}`, "error");
-        } finally {
-            isBumpingActive = false;
-            await fetchLiveStatus();
-        }
-    }
-
     // Start polling automatically
     document.addEventListener("DOMContentLoaded", () => {
-        const autoBumperEnabled = localStorage.getItem('browserAutoBumperEnabled') === 'true';
         const checkbox = document.getElementById('toggleAutoBumper');
         if (checkbox) {
-            checkbox.checked = autoBumperEnabled;
+            updateAutoBumperUI(checkbox.checked);
         }
-        updateAutoBumperUI(autoBumperEnabled);
 
         fetchLiveStatus();
         setInterval(fetchLiveStatus, 10000);

@@ -136,3 +136,18 @@ class PlayerUpCredential(models.Model):
 
     def __str__(self):
         return f"PlayerUp credentials for {self.username or 'unconfigured account'}"
+
+
+class BumperSetting(models.Model):
+    singleton_key = models.CharField(max_length=50, unique=True, default='default')
+    browser_auto_bumper_enabled = models.BooleanField(default=False)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    @classmethod
+    def current(cls):
+        settings, _ = cls.objects.get_or_create(singleton_key='default')
+        return settings
+
+    def __str__(self):
+        status_str = "Enabled" if self.browser_auto_bumper_enabled else "Disabled"
+        return f"Auto-Bumper Global Setting: {status_str}"

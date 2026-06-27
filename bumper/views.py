@@ -7,7 +7,7 @@ from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 from django.utils import timezone
 from django.conf import settings
-from .models import Listing, BumpLog, ScrapeLog, PlayerUpCredential
+from .models import Listing, BumpLog, ScrapeLog, PlayerUpCredential, BumperSetting
 
 @ensure_csrf_cookie
 def dashboard(request):
@@ -26,6 +26,7 @@ def dashboard(request):
     bumps_today = BumpLog.objects.filter(success=True, timestamp__gte=today_start).count()
     
     recent_scrapes = ScrapeLog.objects.all()[:5]
+    settings_obj = BumperSetting.current()
     
     context = {
         'listings': listings,
@@ -34,6 +35,7 @@ def dashboard(request):
         'bumps_today': bumps_today,
         'due_now': due_now,
         'recent_scrapes': recent_scrapes,
+        'browser_auto_bumper_enabled': settings_obj.browser_auto_bumper_enabled,
     }
     return render(request, 'bumper/dashboard.html', context)
 
@@ -362,13 +364,85 @@ def live_status(request):
                 'timestamp': local_time.strftime('%H:%M:%S')
             })
             
-        due_listings_ids = [l.id for l in active_listings_qs if l.bump_due]
+        due_listings = [{'id': l.id, 'url': l.url} for l in active_listings_qs if l.bump_due]
+        settings_obj = BumperSetting.current()
             
         return JsonResponse({
             'due_count': due_count,
             'bumps_today': bumps_today,
             'recent_logs': recent_logs,
-            'due_listings_ids': due_listings_ids
+            'due_listings': due_listings,
+            'browser_auto_bumper_enabled': settings_obj.browser_auto_bumper_enabled
+        })
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+@csrf_exempt
+@require_POST
+def toggle_auto_bumper(request):
+    """
+    POST API endpoint called by the dashboard to toggle global auto-bumper state.
+    """
+    try:
+        data = json.loads(request.body)
+        enabled = data.get('enabled', False)
+        settings_obj = BumperSetting.current()
+        settings_obj.browser_auto_bumper_enabled = enabled
+        settings_obj.save()
+        return JsonResponse({'success': True, 'enabled': settings_obj.browser_auto_bumper_enabled})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+def analytics(request):
+    """
+    Renders the charts analytics page.
+    """
+    return render(request, 'bumper/analytics.html')
+
+def analytics_data(request):
+    """
+    GET API endpoint to retrieve aggregated counts for Chart.js dashboard charts.
+    """
+    try:
+        # 1. 7-Day Bumps Activity
+        seven_days_ago = timezone.now() - timedelta(days=7)
+        logs_last_7_days = BumpLog.objects.filter(timestamp__gte=seven_days_ago)
+        
+        daily_bumps = {}
+        # Initialize last 7 days with 0
+        for d in range(7):
+            day = (timezone.now() - timedelta(days=d)).date()
+            daily_bumps[day.strftime('%Y-%m-%d')] = 0
+            
+        for log in logs_last_7_days:
+            if log.success:
+                day_str = timezone.localtime(log.timestamp).date().strftime('%Y-%m-%d')
+                if day_str in daily_bumps:
+                    daily_bumps[day_str] += 1
+                    
+        # Sort keys chronologically
+        sorted_days = sorted(daily_bumps.keys())
+        daily_bumps_data = [daily_bumps[k] for k in sorted_days]
+        
+        # 2. Success vs Failure ratio
+        success_count = BumpLog.objects.filter(success=True).count()
+        failed_count = BumpLog.objects.filter(success=False).count()
+        
+        # 3. Top 5 listings
+        top_listings = []
+        for l in Listing.objects.all().order_by('-bump_count')[:5]:
+            short_title = (l.title[:30] + '...') if len(l.title) > 30 else l.title
+            top_listings.append({
+                'title': short_title,
+                'bump_count': l.bump_count
+            })
+            
+        return JsonResponse({
+            'daily_bumps_labels': sorted_days,
+            'daily_bumps_data': daily_bumps_data,
+            'ratio_labels': ['Success', 'Failed'],
+            'ratio_data': [success_count, failed_count],
+            'top_listings': top_listings
         })
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
