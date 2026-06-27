@@ -565,7 +565,7 @@
                 console.log(`[Bumper] Opening 1x1 browser window for listing ${id}...`);
                 const bumpWindow = window.open(
                     `${url}#bump-${triggerType}-${id}`,
-                    `bump_tab_${id}`,
+                    "playerup_bump_popup",
                     `width=${width},height=${height},left=${left},top=${top},menubar=no,status=no,toolbar=no,location=no`
                 );
                 
@@ -581,9 +581,23 @@
                 } else {
                     showToast("Opened browser bump popup. Please wait for completion...", "success");
                     
+                    const timeoutId = setTimeout(() => {
+                        clearInterval(checkInterval);
+                        console.warn(`[Bumper] Popup safety timeout reached for listing ${id}. Force closing window...`);
+                        try {
+                            if (!bumpWindow.closed) {
+                                bumpWindow.close();
+                            }
+                        } catch (e) {
+                            console.error("[Bumper] Failed to force close popup:", e);
+                        }
+                        resolve();
+                    }, 25000);
+                    
                     const checkInterval = setInterval(async () => {
                         if (bumpWindow.closed) {
                             clearInterval(checkInterval);
+                            clearTimeout(timeoutId);
                             console.log(`[Bumper] Browser popup window closed.`);
                             
                             // Re-fetch live dashboard statistics
