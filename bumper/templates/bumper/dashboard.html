@@ -545,7 +545,7 @@
     }
 
     // AJAX MANUAL BUMP INDIVIDUAL
-    async function bumpSingle(id) {
+    async function bumpSingle(id, triggerType = 'manual') {
         const btn = document.getElementById(`btn-bump-${id}`);
         if (!btn || btn.disabled) return;
         
@@ -564,7 +564,7 @@
                 
                 console.log(`[Bumper] Opening 1x1 browser window for listing ${id}...`);
                 const bumpWindow = window.open(
-                    `${url}#bump-manual-${id}`,
+                    `${url}#bump-${triggerType}-${id}`,
                     `bump_tab_${id}`,
                     `width=${width},height=${height},left=${left},top=${top},menubar=no,status=no,toolbar=no,location=no`
                 );
@@ -1016,7 +1016,7 @@
                 const id = dueListingIds[i];
                 showToast(`[Auto-Bumper] Automatically processing thread ${i + 1} of ${dueListingIds.length}...`, "success");
 
-                await bumpSingle(id);
+                await bumpSingle(id, 'auto');
 
                 if (i < dueListingIds.length - 1) {
                     const delaySeconds = Math.floor(Math.random() * 15) + 30; // 30-45 seconds
