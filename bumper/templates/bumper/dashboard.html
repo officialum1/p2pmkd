@@ -382,6 +382,34 @@
             </button>
         </div>
     </div>
+    <div class="table-filter-bar" style="display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 0px 24px 16px 24px; border-bottom: 1px solid var(--border); flex-wrap: wrap;">
+        <div style="display: flex; align-items: center; gap: 12px; flex-grow: 1; max-width: 600px;">
+            <div style="position: relative; flex-grow: 1;">
+                <input type="text" id="listingSearch" onkeyup="filterListings()" placeholder="Search threads..." style="width: 100%; padding: 8px 12px 8px 36px; background-color: var(--panel-2); border: 1px solid var(--border-2); color: var(--text); border-radius: 8px; font-size: 0.9rem; outline: none; transition: var(--transition);" onfocus="this.style.borderColor='var(--green)'" onblur="this.style.borderColor='var(--border-2)'">
+                <svg style="position: absolute; left: 12px; top: 10px; width: 16px; height: 16px; color: var(--text-dim);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                </svg>
+            </div>
+            <select id="platformFilter" onchange="filterListings()" style="padding: 8px 12px; background-color: var(--panel-2); border: 1px solid var(--border-2); color: var(--text-dim); border-radius: 8px; font-size: 0.9rem; outline: none; cursor: pointer; transition: var(--transition);" onfocus="this.style.borderColor='var(--green)'" onblur="this.style.borderColor='var(--border-2)'">
+                <option value="">All Platforms</option>
+                <option value="reddit">Reddit</option>
+                <option value="snapchat">Snapchat</option>
+                <option value="instagram">Instagram</option>
+                <option value="tiktok">TikTok</option>
+            </select>
+        </div>
+        <div>
+            <select id="sortListingsSelect" onchange="sortListings()" style="padding: 8px 12px; background-color: var(--panel-2); border: 1px solid var(--border-2); color: var(--text-dim); border-radius: 8px; font-size: 0.9rem; outline: none; cursor: pointer; transition: var(--transition);" onfocus="this.style.borderColor='var(--green)'" onblur="this.style.borderColor='var(--border-2)'">
+                <option value="default">Sort: Default (Recent)</option>
+                <option value="title-asc">Title: A - Z</option>
+                <option value="title-desc">Title: Z - A</option>
+                <option value="price-asc">Price: Low to High</option>
+                <option value="price-desc">Price: High to Low</option>
+                <option value="bumps-desc">Most Bumps (24h)</option>
+                <option value="due">Due Bumps First</option>
+            </select>
+        </div>
+    </div>
     <div style="overflow-x: auto;">
         <table>
             <thead>
@@ -483,7 +511,7 @@
                             </label>
                         </td>
                         <td style="text-align: right; position: relative;">
-                            <button id="btn-bump-{{ listing.id }}" class="btn btn-sm" onclick="bumpSingle({{ listing.id }})" {% if not listing.bump_enabled or listing.status != 'active' %}disabled{% endif %}>
+                            <button id="btn-bump-{{ listing.id }}" class="btn btn-sm" onclick="bumpSingle({{ listing.id }})" {% if not listing.bump_enabled or listing.status != 'active' or listing.bumps_last_24h >= 4 %}disabled{% endif %}>
                                 <span>Bump Now</span>
                             </button>
                         </td>
@@ -984,6 +1012,67 @@
         } catch (err) {
             console.error("Failed to fetch live stats", err);
         }
+    }
+
+    // SEARCH, PLATFORM FILTERING, & SORTING CONTROLLERS
+    function filterListings() {
+        const searchVal = document.getElementById('listingSearch').value.toLowerCase();
+        const platformVal = document.getElementById('platformFilter').value.toLowerCase();
+        const rows = document.querySelectorAll('#listingsTableBody tr.listing-row');
+
+        rows.forEach(row => {
+            const title = row.querySelector('.thread-title').textContent.toLowerCase();
+            const categoryBadge = row.querySelector('.badge-gray');
+            const category = categoryBadge ? categoryBadge.textContent.toLowerCase() : '';
+            const fullText = title + ' ' + category;
+
+            const matchesSearch = fullText.includes(searchVal);
+            const matchesPlatform = platformVal === '' || fullText.includes(platformVal);
+
+            if (matchesSearch && matchesPlatform) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    }
+
+    function sortListings() {
+        const sortVal = document.getElementById('sortListingsSelect').value;
+        const tbody = document.getElementById('listingsTableBody');
+        const rows = Array.from(tbody.querySelectorAll('tr.listing-row'));
+
+        rows.sort((a, b) => {
+            if (sortVal === 'default') {
+                return parseInt(a.getAttribute('data-id')) - parseInt(b.getAttribute('data-id'));
+            }
+            if (sortVal === 'title-asc') {
+                return a.querySelector('.thread-title').textContent.trim().localeCompare(b.querySelector('.thread-title').textContent.trim());
+            }
+            if (sortVal === 'title-desc') {
+                return b.querySelector('.thread-title').textContent.trim().localeCompare(a.querySelector('.thread-title').textContent.trim());
+            }
+            if (sortVal === 'price-asc' || sortVal === 'price-desc') {
+                const priceA = parseFloat(a.cells[3].textContent.replace(/[^0-9.]/g, '') || '0');
+                const priceB = parseFloat(b.cells[3].textContent.replace(/[^0-9.]/g, '') || '0');
+                return sortVal === 'price-asc' ? priceA - priceB : priceB - priceA;
+            }
+            if (sortVal === 'bumps-desc') {
+                const badgeA = a.querySelector('[id^="count-24h-badge-"]');
+                const badgeB = b.querySelector('[id^="count-24h-badge-"]');
+                const bumpsA = badgeA ? parseInt(badgeA.innerText.split('/')[0] || '0') : 0;
+                const bumpsB = badgeB ? parseInt(badgeB.innerText.split('/')[0] || '0') : 0;
+                return bumpsB - bumpsA;
+            }
+            if (sortVal === 'due') {
+                const dueA = a.classList.contains('tag-due') ? 1 : 0;
+                const dueB = b.classList.contains('tag-due') ? 1 : 0;
+                return dueB - dueA;
+            }
+            return 0;
+        });
+
+        rows.forEach(row => tbody.appendChild(row));
     }
 
     // BROWSER-SIDE AUTO-BUMPER LOGIC
