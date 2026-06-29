@@ -782,9 +782,14 @@
 
     // SELECT / DESELECT ALL LISTINGS
     function toggleSelectAll(master) {
-        const checkboxes = document.querySelectorAll('.row-selector');
-        checkboxes.forEach(cb => {
-            cb.checked = master.checked;
+        const rows = document.querySelectorAll('#listingsTableBody tr.listing-row');
+        rows.forEach(row => {
+            if (row.style.display !== 'none') {
+                const cb = row.querySelector('.row-selector');
+                if (cb) {
+                    cb.checked = master.checked;
+                }
+            }
         });
         onRowSelectChange();
     }
@@ -1029,12 +1034,23 @@
             const matchesSearch = fullText.includes(searchVal);
             const matchesPlatform = platformVal === '' || fullText.includes(platformVal);
 
+            const cb = row.querySelector('.row-selector');
+
             if (matchesSearch && matchesPlatform) {
                 row.style.display = '';
             } else {
                 row.style.display = 'none';
+                if (cb && cb.checked) {
+                    cb.checked = false;
+                }
             }
         });
+
+        const master = document.getElementById('selectAllListings');
+        if (master) {
+            master.checked = false;
+        }
+        onRowSelectChange();
     }
 
     function sortListings() {
