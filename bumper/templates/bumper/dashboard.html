@@ -374,6 +374,12 @@
                 <option value="hours">hours</option>
                 <option value="days">days</option>
             </select>
+            <span style="font-size: 0.8rem; color: var(--text-dim); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-left: 8px;">Auto:</span>
+            <select id="bulkAutoState" style="background-color: var(--bg); border: 1px solid var(--border); color: var(--text-dim); border-radius: 6px; padding: 6px; font-size: 0.8rem; font-weight: 500; outline: none; transition: var(--transition);" onfocus="this.style.borderColor='var(--green)'" onblur="this.style.borderColor='var(--border)'">
+                <option value="keep" selected>Keep Current</option>
+                <option value="enable">Enable (Active)</option>
+                <option value="disable">Disable (Paused)</option>
+            </select>
             <button class="btn btn-sm btn-green" onclick="applyBulkInterval()" style="padding: 6px 12px; font-size: 0.8rem; font-weight: 600;">
                 Update Selected (<span id="selectedCount">0</span>)
             </button>
@@ -824,10 +830,12 @@
         const ids = Array.from(checkedBoxes).map(cb => parseInt(cb.getAttribute('data-id')));
         const bulkValEl = document.getElementById('bulkIntervalVal');
         const bulkUnitEl = document.getElementById('bulkIntervalUnit');
-        if (!bulkValEl || !bulkUnitEl) return;
+        const bulkAutoEl = document.getElementById('bulkAutoState');
+        if (!bulkValEl || !bulkUnitEl || !bulkAutoEl) return;
 
         const value = parseInt(bulkValEl.value || '1');
         const unit = bulkUnitEl.value;
+        const autoState = bulkAutoEl.value;
 
         if (isNaN(value) || value <= 0) {
             showToast("Please enter a valid interval greater than 0.", "error");
@@ -837,21 +845,50 @@
         try {
             bulkValEl.disabled = true;
             bulkUnitEl.disabled = true;
+            bulkAutoEl.disabled = true;
 
             const res = await post('/api/update-interval-bulk/', {
                 ids: ids,
                 value: value,
-                unit: unit
+                unit: unit,
+                auto_state: autoState
             });
 
             if (res.success) {
                 showToast(res.message, "success");
 
                 ids.forEach(id => {
-                    const rowValEl = document.getElementById(`interval-val-${id}`);
-                    const rowUnitEl = document.getElementById(`interval-unit-${id}`);
-                    if (rowValEl) rowValEl.value = value;
-                    if (rowUnitEl) rowUnitEl.value = unit;
+                    const row = document.getElementById(`row-${id}`);
+                    if (row) {
+                        const rowValEl = document.getElementById(`interval-val-${id}`);
+                        const rowUnitEl = document.getElementById(`interval-unit-${id}`);
+                        if (rowValEl) rowValEl.value = value;
+                        if (rowUnitEl) rowUnitEl.value = unit;
+
+                        const switchEl = row.querySelector('.switch input');
+                        const statusBadge = row.querySelector('td:nth-child(5) .badge');
+                        const bumpBtn = document.getElementById(`btn-bump-${id}`);
+
+                        if (autoState === 'enable') {
+                            if (switchEl) switchEl.checked = true;
+                            if (statusBadge) {
+                                statusBadge.className = 'badge badge-green';
+                                statusBadge.innerText = 'Active';
+                            }
+                            if (bumpBtn) {
+                                const badge24h = document.getElementById(`count-24h-badge-${id}`);
+                                const current24h = badge24h ? parseInt(badge24h.innerText.split('/')[0] || '0') : 0;
+                                bumpBtn.disabled = current24h >= 4;
+                            }
+                        } else if (autoState === 'disable') {
+                            if (switchEl) switchEl.checked = false;
+                            if (statusBadge) {
+                                statusBadge.className = 'badge badge-yellow';
+                                statusBadge.innerText = 'Paused';
+                            }
+                            if (bumpBtn) bumpBtn.disabled = true;
+                        }
+                    }
                 });
 
                 const masterCheckbox = document.getElementById('selectAllListings');
@@ -868,6 +905,7 @@
         } finally {
             bulkValEl.disabled = false;
             bulkUnitEl.disabled = false;
+            bulkAutoEl.disabled = false;
         }
     }
 

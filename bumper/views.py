@@ -302,6 +302,7 @@ def update_interval_bulk(request):
         ids = data.get('ids', [])
         value = int(data.get('value', 30))
         unit = data.get('unit', 'minutes')
+        auto_state = data.get('auto_state', 'keep')
 
         if not ids:
             return JsonResponse({'success': False, 'message': 'No threads were selected.'}, status=400)
@@ -323,6 +324,14 @@ def update_interval_bulk(request):
         updated_count = 0
         for listing in listings:
             listing.bump_interval_seconds = total_seconds
+            
+            if auto_state == 'enable':
+                listing.bump_enabled = True
+                listing.status = 'active'
+            elif auto_state == 'disable':
+                listing.bump_enabled = False
+                listing.status = 'paused'
+
             # Recalculate next due time
             if listing.last_bumped:
                 listing.next_bump_due = listing.last_bumped + timedelta(seconds=total_seconds)
@@ -331,9 +340,15 @@ def update_interval_bulk(request):
             listing.save()
             updated_count += 1
 
+        status_msg = ""
+        if auto_state == 'enable':
+            status_msg = " and activated"
+        elif auto_state == 'disable':
+            status_msg = " and paused"
+
         return JsonResponse({
             'success': True,
-            'message': f'Successfully updated {updated_count} threads to {value} {unit}.'
+            'message': f'Successfully updated {updated_count} threads to {value} {unit}{status_msg}.'
         })
     except ValueError:
         return JsonResponse({'success': False, 'message': 'Invalid numeric value.'}, status=400)
