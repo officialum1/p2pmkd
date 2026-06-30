@@ -780,7 +780,7 @@
         }
     }
 
-    // SELECT / DESELECT ALL LISTINGS
+    // SELECT / DESELECT ALL LISTINGS (FILTER-AWARE)
     function toggleSelectAll(master) {
         const rows = document.querySelectorAll('#listingsTableBody tr.listing-row');
         rows.forEach(row => {
@@ -1034,12 +1034,11 @@
             const matchesSearch = fullText.includes(searchVal);
             const matchesPlatform = platformVal === '' || fullText.includes(platformVal);
 
-            const cb = row.querySelector('.row-selector');
-
             if (matchesSearch && matchesPlatform) {
                 row.style.display = '';
             } else {
                 row.style.display = 'none';
+                const cb = row.querySelector('.row-selector');
                 if (cb && cb.checked) {
                     cb.checked = false;
                 }
@@ -1047,9 +1046,8 @@
         });
 
         const master = document.getElementById('selectAllListings');
-        if (master) {
-            master.checked = false;
-        }
+        if (master) master.checked = false;
+
         onRowSelectChange();
     }
 
