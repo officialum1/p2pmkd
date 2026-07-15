@@ -44,6 +44,27 @@ class Listing(models.Model):
         return timezone.now() >= self.next_bump_due
 
     @property
+    def effective_next_bump_due(self):
+        """
+        Returns the actual next timestamp this listing can be bumped.
+        If it has reached the 24h limit of 4 bumps, it returns the oldest bump timestamp + 24 hours.
+        Otherwise, returns listing.next_bump_due.
+        """
+        if not self.bump_enabled or self.status != 'active':
+            return None
+            
+        if self.bumps_last_24h >= 4:
+            from datetime import timedelta
+            cutoff = timezone.now() - timedelta(hours=24)
+            oldest_log = self.bump_logs.filter(success=True, timestamp__gte=cutoff).order_by('timestamp').first()
+            if oldest_log:
+                reset_time = oldest_log.timestamp + timedelta(hours=24)
+                if self.next_bump_due:
+                    return max(self.next_bump_due, reset_time)
+                return reset_time
+        return self.next_bump_due
+
+    @property
     def time_since_bump(self):
         if not self.last_bumped:
             return "Never bumped"

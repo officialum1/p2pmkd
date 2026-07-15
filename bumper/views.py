@@ -368,20 +368,15 @@ def live_status(request):
         
         # Calculate next bump timestamp
         next_bump_timestamp = None
-        valid_listings = []
-        for l in active_listings_qs:
-            if l.bumps_last_24h < 4:
-                valid_listings.append(l)
-                
-        if valid_listings:
-            any_due = any(l.next_bump_due and timezone.now() >= l.next_bump_due for l in valid_listings)
-            if any_due:
+        if active_listings_qs.exists():
+            due_listings = [l for l in active_listings_qs if l.bump_due]
+            if due_listings:
                 next_bump_timestamp = int(timezone.now().timestamp())
             else:
-                future_listings = [l for l in valid_listings if l.next_bump_due]
-                if future_listings:
-                    earliest_listing = min(future_listings, key=lambda x: x.next_bump_due)
-                    next_bump_timestamp = int(earliest_listing.next_bump_due.timestamp())
+                due_times = [l.effective_next_bump_due for l in active_listings_qs if l.effective_next_bump_due]
+                if due_times:
+                    earliest_due = min(due_times)
+                    next_bump_timestamp = int(earliest_due.timestamp())
 
         recent_logs = []
         logs_qs = BumpLog.objects.select_related('listing').all()[:10]
