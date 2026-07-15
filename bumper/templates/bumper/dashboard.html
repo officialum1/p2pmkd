@@ -402,10 +402,6 @@
             </div>
             <select id="platformFilter" onchange="filterListings()" style="padding: 8px 12px; background-color: var(--panel-2); border: 1px solid var(--border-2); color: var(--text-dim); border-radius: 8px; font-size: 0.9rem; outline: none; cursor: pointer; transition: var(--transition);" onfocus="this.style.borderColor='var(--green)'" onblur="this.style.borderColor='var(--border-2)'">
                 <option value="">All Platforms</option>
-                <option value="reddit">Reddit</option>
-                <option value="snapchat">Snapchat</option>
-                <option value="instagram">Instagram</option>
-                <option value="tiktok">TikTok</option>
             </select>
         </div>
         <div>
@@ -1103,6 +1099,48 @@
     }
 
     // SEARCH, PLATFORM FILTERING, & SORTING CONTROLLERS
+    function populatePlatformFilter() {
+        const filter = document.getElementById('platformFilter');
+        if (!filter) return;
+
+        const standardPlatforms = ['Reddit', 'Snapchat', 'Instagram', 'TikTok', 'Discord', 'Telegram', 'Twitter', 'Facebook', 'YouTube', 'WhatsApp'];
+        const foundPlatforms = new Set();
+
+        const rows = document.querySelectorAll('#listingsTableBody tr.listing-row');
+        rows.forEach(row => {
+            const title = row.querySelector('.thread-title').textContent.trim();
+            const categoryBadge = row.querySelector('.badge-gray');
+            const category = categoryBadge ? categoryBadge.textContent.trim() : '';
+
+            const fullText = (title + ' ' + category).toLowerCase();
+
+            let matched = false;
+            standardPlatforms.forEach(p => {
+                if (fullText.includes(p.toLowerCase())) {
+                    foundPlatforms.add(p);
+                    row.setAttribute('data-platform', p.toLowerCase());
+                    matched = true;
+                }
+            });
+
+            if (!matched && category && category.toLowerCase() !== 'home') {
+                foundPlatforms.add(category);
+                row.setAttribute('data-platform', category.toLowerCase());
+            } else if (!matched) {
+                row.setAttribute('data-platform', 'other');
+            }
+        });
+
+        filter.innerHTML = '<option value="">All Platforms</option>';
+        const sortedPlatforms = Array.from(foundPlatforms).sort();
+        sortedPlatforms.forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p.toLowerCase();
+            opt.textContent = p;
+            filter.appendChild(opt);
+        });
+    }
+
     function filterListings() {
         const searchVal = document.getElementById('listingSearch').value.toLowerCase();
         const platformVal = document.getElementById('platformFilter').value.toLowerCase();
@@ -1115,7 +1153,8 @@
             const fullText = title + ' ' + category;
 
             const matchesSearch = fullText.includes(searchVal);
-            const matchesPlatform = platformVal === '' || fullText.includes(platformVal);
+            const rowPlatform = row.getAttribute('data-platform') || '';
+            const matchesPlatform = platformVal === '' || rowPlatform === platformVal;
 
             if (matchesSearch && matchesPlatform) {
                 row.style.display = '';
@@ -1217,6 +1256,7 @@
             updateAutoBumperUI(checkbox.checked);
         }
 
+        populatePlatformFilter();
         fetchLiveStatus();
         setInterval(fetchLiveStatus, 10000);
     });
