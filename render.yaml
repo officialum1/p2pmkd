@@ -6,7 +6,7 @@ services:
     buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput
     preDeployCommand: python manage.py migrate
     startCommand: gunicorn playerup_dashboard.wsgi:application --bind 0.0.0.0:$PORT
-    healthCheckPath: /
+    healthCheckPath: /api/health/
     autoDeployTrigger: commit
     envVars:
       - fromGroup: playerup-bumper-env

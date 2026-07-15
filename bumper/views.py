@@ -461,3 +461,9 @@ def analytics_data(request):
         })
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+def health_check(request):
+    """
+    Lightweight health check endpoint for Render to prevent timeout restarts.
+    """
+    return JsonResponse({'status': 'healthy'})
