@@ -738,7 +738,9 @@
             // Toggle corresponding row button state
             const btn = document.getElementById(`btn-bump-${id}`);
             if (btn) {
-                btn.disabled = !data.bump_enabled;
+                const badge24h = document.getElementById(`count-24h-badge-${id}`);
+                const current24h = badge24h ? parseInt(badge24h.innerText.split('/')[0] || '0') : 0;
+                btn.disabled = !data.bump_enabled || current24h >= 4;
             }
             await fetchLiveStatus();
         } catch (err) {
