@@ -599,7 +599,7 @@
                 console.log(`[Bumper] Opening 1x1 browser window for listing ${id}...`);
                 const bumpWindow = window.open(
                     `${url}#bump-${triggerType}-${id}`,
-                    "playerup_bump_popup",
+                    `playerup_bump_popup_${id}`,
                     `width=${width},height=${height},left=${left},top=${top},menubar=no,status=no,toolbar=no,location=no`
                 );
                 
