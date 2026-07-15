@@ -366,6 +366,23 @@ def live_status(request):
         today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
         bumps_today = BumpLog.objects.filter(success=True, timestamp__gte=today_start).count()
         
+        # Calculate next bump timestamp
+        next_bump_timestamp = None
+        valid_listings = []
+        for l in active_listings_qs:
+            if l.bumps_last_24h < 4:
+                valid_listings.append(l)
+                
+        if valid_listings:
+            any_due = any(l.next_bump_due and timezone.now() >= l.next_bump_due for l in valid_listings)
+            if any_due:
+                next_bump_timestamp = int(timezone.now().timestamp())
+            else:
+                future_listings = [l for l in valid_listings if l.next_bump_due]
+                if future_listings:
+                    earliest_listing = min(future_listings, key=lambda x: x.next_bump_due)
+                    next_bump_timestamp = int(earliest_listing.next_bump_due.timestamp())
+
         recent_logs = []
         logs_qs = BumpLog.objects.select_related('listing').all()[:10]
         
@@ -387,7 +404,8 @@ def live_status(request):
             'bumps_today': bumps_today,
             'recent_logs': recent_logs,
             'due_listings': due_listings,
-            'browser_auto_bumper_enabled': settings_obj.browser_auto_bumper_enabled
+            'browser_auto_bumper_enabled': settings_obj.browser_auto_bumper_enabled,
+            'next_bump_timestamp': next_bump_timestamp
         })
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)

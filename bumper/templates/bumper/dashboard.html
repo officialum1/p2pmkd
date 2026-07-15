@@ -359,6 +359,10 @@
         <div class="stat-label">Bumps Today</div>
         <div id="statToday" class="stat-value" style="color:var(--green)">{{ bumps_today }}</div>
     </div>
+    <div class="stat-card">
+        <div class="stat-label">Next Bump In</div>
+        <div id="statNextBump" class="stat-value" style="color:var(--green); font-size: 1.8rem; line-height: 2.2rem; margin-top: 10px;">--</div>
+    </div>
 </div>
 
 <!-- Main Listings Table -->
@@ -1012,6 +1016,43 @@
     }
 
     // AJAX DYNAMIC METRICS POLLING
+    let nextBumpTimestamp = null;
+
+    function updateNextBumpCountdown() {
+        const el = document.getElementById('statNextBump');
+        if (!el) return;
+
+        if (!nextBumpTimestamp) {
+            el.innerText = "--";
+            el.style.color = "var(--text-dim)";
+            return;
+        }
+
+        const nowSeconds = Math.floor(Date.now() / 1000);
+        const remaining = nextBumpTimestamp - nowSeconds;
+
+        if (remaining <= 0) {
+            el.innerText = "Due Now";
+            el.style.color = "var(--yellow)";
+        } else {
+            el.style.color = "var(--green)";
+            if (remaining < 60) {
+                el.innerText = `${remaining}s`;
+            } else if (remaining < 3600) {
+                const mins = Math.floor(remaining / 60);
+                const secs = remaining % 60;
+                el.innerText = `${mins}m ${secs}s`;
+            } else {
+                const hrs = Math.floor(remaining / 3600);
+                const mins = Math.floor((remaining % 3600) / 60);
+                el.innerText = `${hrs}h ${mins}m`;
+            }
+        }
+    }
+
+    // Run countdown update every 1 second
+    setInterval(updateNextBumpCountdown, 1000);
+
     async function fetchLiveStatus() {
         try {
             const r = await fetch('/live-status/');
@@ -1021,6 +1062,8 @@
             // Update upper status counters
             document.getElementById('statDue').innerText = data.due_count;
             document.getElementById('statToday').innerText = data.bumps_today;
+            nextBumpTimestamp = data.next_bump_timestamp;
+            updateNextBumpCountdown();
             
             // Build and insert activity log panel content
             const liveLog = document.getElementById('liveLog');
