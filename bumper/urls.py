@@ -18,4 +18,6 @@ urlpatterns = [
     path('live-status/', views.live_status, name='live_status'),
     path('analytics/', views.analytics, name='analytics'),
     path('api/health/', views.health_check, name='health_check'),
+    path('requires-upgrade/', views.requires_upgrade, name='requires_upgrade'),
+    path('api/reactivate-listing/<int:id>/', views.reactivate_listing, name='reactivate_listing'),
 ]

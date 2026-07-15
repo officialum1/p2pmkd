@@ -6,6 +6,7 @@ class Listing(models.Model):
         ('active', 'Active'),
         ('paused', 'Paused'),
         ('sold', 'Sold'),
+        ('requires_upgrade', 'Requires Upgrade'),
         ('unknown', 'Unknown'),
     ]
 

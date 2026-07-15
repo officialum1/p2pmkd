@@ -14,7 +14,7 @@ def dashboard(request):
     """
     Renders the Auto-Bumper dashboard with current listings, logs, and statistics.
     """
-    listings = Listing.objects.all()
+    listings = Listing.objects.exclude(status='requires_upgrade').order_by('-id')
     total_listings = listings.count()
     
     active_listings_qs = listings.filter(status='active', bump_enabled=True)
@@ -231,7 +231,7 @@ def log_bump(request):
             listing.save()
         elif disable_listing:
             listing.bump_enabled = False
-            listing.status = 'paused'
+            listing.status = 'requires_upgrade'
             listing.save()
 
         BumpLog.objects.create(
@@ -485,3 +485,30 @@ def health_check(request):
     Lightweight health check endpoint for Render to prevent timeout restarts.
     """
     return JsonResponse({'status': 'healthy'})
+
+def requires_upgrade(request):
+    """
+    Renders a page containing only listings that require paid upgrades to bump.
+    """
+    listings = Listing.objects.filter(status='requires_upgrade').order_by('-id')
+    context = {
+        'listings': listings,
+        'total_listings': listings.count(),
+    }
+    return render(request, 'bumper/requires_upgrade.html', context)
+
+@csrf_exempt
+@require_POST
+def reactivate_listing(request, id):
+    """
+    AJAX POST endpoint to move a listing back from requires_upgrade to active state.
+    """
+    try:
+        listing = get_object_or_404(Listing, id=id)
+        listing.status = 'active'
+        listing.bump_enabled = True
+        listing.next_bump_due = timezone.now()
+        listing.save()
+        return JsonResponse({'success': True})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
