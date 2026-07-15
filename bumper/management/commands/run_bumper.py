@@ -107,9 +107,9 @@ class Command(BaseCommand):
                 else:
                     self.stdout.write("No listings are currently due for a bump.")
 
-                # Wait 5 minutes before checking listings again
-                self.stdout.write("Cycle finished. Sleeping for 5 minutes...")
-                time.sleep(300)
+                # Wait 30 seconds before checking listings again
+                self.stdout.write("Cycle finished. Sleeping for 30 seconds...")
+                time.sleep(30)
 
         except KeyboardInterrupt:
             self.stdout.write(self.style.SUCCESS("Stopped."))
