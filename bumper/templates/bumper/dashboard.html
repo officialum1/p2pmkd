@@ -1103,7 +1103,19 @@
         const filter = document.getElementById('platformFilter');
         if (!filter) return;
 
-        const standardPlatforms = ['Reddit', 'Snapchat', 'Instagram', 'TikTok', 'Discord', 'Telegram', 'Twitter', 'Facebook', 'YouTube', 'WhatsApp'];
+        const platformMappings = [
+            { name: 'Reddit', keywords: ['reddit'] },
+            { name: 'Snapchat', keywords: ['snapchat', 'snap'] },
+            { name: 'Instagram', keywords: ['instagram', 'insta', 'ig'] },
+            { name: 'TikTok', keywords: ['tiktok', 'tik tok'] },
+            { name: 'Discord', keywords: ['discord', 'ds'] },
+            { name: 'Telegram', keywords: ['telegram', 'tg'] },
+            { name: 'Twitter', keywords: ['twitter', 'x.com'] },
+            { name: 'Facebook', keywords: ['facebook', 'fb'] },
+            { name: 'YouTube', keywords: ['youtube', 'yt'] },
+            { name: 'WhatsApp', keywords: ['whatsapp', 'wa'] },
+            { name: 'LinkedIn', keywords: ['linkedin', 'linkdln'] }
+        ];
         const foundPlatforms = new Set();
 
         const rows = document.querySelectorAll('#listingsTableBody tr.listing-row');
@@ -1115,10 +1127,18 @@
             const fullText = (title + ' ' + category).toLowerCase();
 
             let matched = false;
-            standardPlatforms.forEach(p => {
-                if (fullText.includes(p.toLowerCase())) {
-                    foundPlatforms.add(p);
-                    row.setAttribute('data-platform', p.toLowerCase());
+            platformMappings.forEach(p => {
+                const isMatch = p.keywords.some(k => {
+                    if (k.length <= 3) {
+                        const regex = new RegExp('\\b' + k + '\\b|\\[' + k + '\\]|\\(' + k + '\\)', 'i');
+                        return regex.test(fullText);
+                    }
+                    return fullText.includes(k);
+                });
+
+                if (isMatch) {
+                    foundPlatforms.add(p.name);
+                    row.setAttribute('data-platform', p.name.toLowerCase());
                     matched = true;
                 }
             });
