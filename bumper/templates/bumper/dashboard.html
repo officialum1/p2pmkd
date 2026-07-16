@@ -822,6 +822,9 @@
 
     // AJAX BULK INTERVAL UPDATE
     async function applyBulkInterval() {
+        console.log("applyBulkInterval clicked. selectedIds size:", selectedIds.size);
+        alert("applyBulkInterval clicked! Selected IDs count: " + selectedIds.size);
+
         if (selectedIds.size === 0) {
             showToast("No threads were selected for bulk update.", "error");
             return;
@@ -831,7 +834,11 @@
         const bulkValEl = document.getElementById('bulkIntervalVal');
         const bulkUnitEl = document.getElementById('bulkIntervalUnit');
         const bulkAutoEl = document.getElementById('bulkAutoState');
-        if (!bulkValEl || !bulkUnitEl || !bulkAutoEl) return;
+        if (!bulkValEl || !bulkUnitEl || !bulkAutoEl) {
+            console.error("One of the bulk elements is null!", { bulkValEl, bulkUnitEl, bulkAutoEl });
+            alert("Error: Bulk configuration elements not found!");
+            return;
+        }
 
         const value = parseInt(bulkValEl.value || '1');
         const unit = bulkUnitEl.value;
