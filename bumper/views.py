@@ -432,17 +432,22 @@ def live_status(request):
         today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
         bumps_today = BumpLog.objects.filter(success=True, timestamp__gte=today_start).count()
         
-        # Calculate next bump timestamp
+        # Calculate next bump timestamp including anti-flood cooldown (30 seconds after last successful bump)
         next_bump_timestamp = None
         if active_listings_qs.exists():
+            last_log = BumpLog.objects.filter(success=True).order_by('-timestamp').first()
+            cooldown_end = last_log.timestamp + timedelta(seconds=30) if last_log else timezone.now()
+            
             due_listings = [l for l in active_listings_qs if l.bump_due]
             if due_listings:
-                next_bump_timestamp = int(timezone.now().timestamp())
+                next_run = max(timezone.now(), cooldown_end)
+                next_bump_timestamp = int(next_run.timestamp())
             else:
                 due_times = [l.effective_next_bump_due for l in active_listings_qs if l.effective_next_bump_due]
                 if due_times:
                     earliest_due = min(due_times)
-                    next_bump_timestamp = int(earliest_due.timestamp())
+                    next_run = max(earliest_due, cooldown_end)
+                    next_bump_timestamp = int(next_run.timestamp())
 
         recent_logs = []
         logs_qs = BumpLog.objects.select_related('listing').all()[:10]
