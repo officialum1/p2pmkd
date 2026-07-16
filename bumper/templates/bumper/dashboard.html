@@ -414,7 +414,12 @@
                 <option value="bumps-desc">Most Bumps (24h)</option>
                 <option value="due">Due Bumps First</option>
             </select>
-        </div>
+    </div>
+    <div id="selectAllNotice" style="display: none; align-items: center; justify-content: center; background-color: rgba(34, 197, 94, 0.15); border-bottom: 1px solid rgba(34, 197, 94, 0.25); padding: 10px 24px; font-size: 0.85rem; color: var(--text); gap: 6px; font-weight: 500; transition: var(--transition);">
+        <span id="selectAllNoticeText">All 50 threads on this page are selected.</span>
+        <button id="btnSelectAllMatching" onclick="selectAllMatchingFiltered()" style="background: none; border: none; color: var(--green); text-decoration: underline; font-weight: 600; cursor: pointer; padding: 0; outline: none;">
+            Select all 8384 threads in Monitored Forum Threads
+        </button>
     </div>
     <div style="overflow-x: auto;">
         <table>
@@ -721,17 +726,21 @@
             }
         });
         
+        isAllMatchingSelected = false; // Reset bulk-match flag on master toggle
         renderListingsTable();
         onRowSelectChange();
     }
 
     // DYNAMIC BULK ACTION PANEL DISPLAY
+    let isAllMatchingSelected = false;
+
     function onRowSelectChange(id, checkbox) {
         if (id !== undefined && checkbox !== undefined) {
             if (checkbox.checked) {
                 selectedIds.add(id);
             } else {
                 selectedIds.delete(id);
+                isAllMatchingSelected = false; // Reset if any individual row is unchecked
             }
         }
 
@@ -752,6 +761,53 @@
             const master = document.getElementById('selectAllListings');
             if (master) master.checked = false;
         }
+
+        // Handle the "Select all X threads" banner display
+        const noticeDiv = document.getElementById('selectAllNotice');
+        const noticeText = document.getElementById('selectAllNoticeText');
+        const noticeBtn = document.getElementById('btnSelectAllMatching');
+        
+        if (noticeDiv && noticeText && noticeBtn) {
+            const master = document.getElementById('selectAllListings');
+            
+            // Calculate current visible page count
+            const startIndex = (currentPage - 1) * pageSize;
+            const endIndex = Math.min(startIndex + pageSize, filteredListings.length);
+            const pageCount = endIndex - startIndex;
+
+            if (master && master.checked && filteredListings.length > pageCount && !isAllMatchingSelected) {
+                noticeDiv.style.display = 'flex';
+                noticeText.innerText = `All ${pageCount} threads on this page are selected.`;
+                noticeBtn.innerText = `Select all ${filteredListings.length} threads in Monitored Forum Threads`;
+                noticeBtn.onclick = selectAllMatchingFiltered;
+                noticeBtn.style.display = 'inline-block';
+            } else if (isAllMatchingSelected) {
+                noticeDiv.style.display = 'flex';
+                noticeText.innerText = `All ${filteredListings.length} threads in Monitored Forum Threads are selected.`;
+                noticeBtn.innerText = `Clear selection`;
+                noticeBtn.onclick = clearAllMatchingSelection;
+                noticeBtn.style.display = 'inline-block';
+            } else {
+                noticeDiv.style.display = 'none';
+            }
+        }
+    }
+
+    function selectAllMatchingFiltered() {
+        isAllMatchingSelected = true;
+        selectedIds.clear();
+        filteredListings.forEach(l => selectedIds.add(l.id));
+        renderListingsTable();
+        onRowSelectChange();
+    }
+
+    function clearAllMatchingSelection() {
+        isAllMatchingSelected = false;
+        selectedIds.clear();
+        const master = document.getElementById('selectAllListings');
+        if (master) master.checked = false;
+        renderListingsTable();
+        onRowSelectChange();
     }
 
     // AJAX BULK INTERVAL UPDATE
@@ -1043,13 +1099,25 @@
             return 0;
         });
 
-        // 3. Keep page index within bounds
+        // 3. Keep selectedIds consistent with current filters
+        const filteredIds = new Set(filteredListings.map(l => l.id));
+        selectedIds.forEach(id => {
+            if (!filteredIds.has(id)) {
+                selectedIds.delete(id);
+            }
+        });
+        if (selectedIds.size < filteredListings.length) {
+            isAllMatchingSelected = false;
+        }
+
+        // 4. Keep page index within bounds
         const totalPages = Math.ceil(filteredListings.length / pageSize) || 1;
         if (currentPage > totalPages) {
             currentPage = totalPages;
         }
 
         renderListingsTable();
+        onRowSelectChange();
     }
 
     function renderListingsTable() {

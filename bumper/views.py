@@ -373,8 +373,12 @@ def update_interval_bulk(request):
         else:  # minutes
             total_seconds = value * 60
 
-        listings = Listing.objects.filter(id__in=ids)
+        # Use transaction.atomic and bulk_update to optimize database speed
+        from django.db import transaction
+        
+        listings = list(Listing.objects.filter(id__in=ids))
         updated_count = 0
+        
         for listing in listings:
             listing.bump_interval_seconds = total_seconds
             
@@ -390,8 +394,17 @@ def update_interval_bulk(request):
                 listing.next_bump_due = listing.last_bumped + timedelta(seconds=total_seconds)
             else:
                 listing.next_bump_due = timezone.now() + timedelta(seconds=total_seconds)
-            listing.save()
             updated_count += 1
+
+        # Perform bulk updates in chunks of 500 to satisfy SQLite limits
+        with transaction.atomic():
+            chunk_size = 500
+            for k in range(0, len(listings), chunk_size):
+                chunk = listings[k:k+chunk_size]
+                Listing.objects.bulk_update(
+                    chunk,
+                    ['bump_interval_seconds', 'bump_enabled', 'status', 'next_bump_due']
+                )
 
         status_msg = ""
         if auto_state == 'enable':
