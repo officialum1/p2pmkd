@@ -20,4 +20,5 @@ urlpatterns = [
     path('api/health/', views.health_check, name='health_check'),
     path('requires-upgrade/', views.requires_upgrade, name='requires_upgrade'),
     path('api/reactivate-listing/<int:id>/', views.reactivate_listing, name='reactivate_listing'),
+    path('api/get-listing/<int:id>/', views.get_listing_details, name='get_listing_details'),
 ]

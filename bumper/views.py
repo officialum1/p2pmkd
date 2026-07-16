@@ -578,3 +578,33 @@ def reactivate_listing(request, id):
         return JsonResponse({'success': True})
     except Exception as e:
         return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+def get_listing_details(request, id):
+    """
+    AJAX GET endpoint to fetch up-to-date bump details for a specific listing.
+    """
+    try:
+        listing = get_object_or_404(Listing, id=id)
+        
+        # Calculate bumps in the last 24 hours
+        cutoff = timezone.now() - timedelta(hours=24)
+        bumps_24h = BumpLog.objects.filter(listing=listing, success=True, timestamp__gte=cutoff).count()
+        
+        local_last_bumped = timezone.localtime(listing.last_bumped) if listing.last_bumped else None
+        last_bumped_str = local_last_bumped.strftime('%Y-%m-%d %H:%M:%S') if local_last_bumped else 'Never bumped'
+        
+        # Determine bump due state dynamically
+        is_due = False
+        if listing.status == 'active' and listing.bump_enabled:
+            is_due = listing.bump_due
+
+        return JsonResponse({
+            'success': True,
+            'id': listing.id,
+            'bumps_last_24h': bumps_24h,
+            'bump_count': listing.bump_count,
+            'last_bumped_str': last_bumped_str,
+            'bump_due': is_due
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)

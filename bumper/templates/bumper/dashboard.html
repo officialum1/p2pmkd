@@ -579,11 +579,21 @@
                             // Re-fetch live dashboard statistics
                             await fetchLiveStatus();
                             
-                            // Visually update the listing row data in memory
-                            item.bumps_last_24h += 1;
-                            item.bump_count += 1;
-                            item.last_bumped_str = "just now";
-                            item.bump_due = false;
+                            // Fetch fresh database details of the listing to display real outcomes
+                            try {
+                                const response = await fetch(`/api/get-listing/${id}/`);
+                                if (response.ok) {
+                                    const data = await response.json();
+                                    if (data.success) {
+                                        item.bumps_last_24h = data.bumps_last_24h;
+                                        item.bump_count = data.bump_count;
+                                        item.last_bumped_str = data.last_bumped_str;
+                                        item.bump_due = data.bump_due;
+                                    }
+                                }
+                            } catch (e) {
+                                console.error("Failed to fetch fresh listing state:", e);
+                            }
                             
                             // Re-render
                             filterAndSortListings();
