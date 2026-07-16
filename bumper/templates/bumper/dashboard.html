@@ -435,105 +435,26 @@
                 </tr>
             </thead>
             <tbody id="listingsTableBody">
-                {% if listings %}
-                    {% for listing in listings %}
-                    <tr class="listing-row {% if listing.bump_due %}tag-due{% endif %}" id="row-{{ listing.id }}" data-id="{{ listing.id }}">
-                        <td style="width: 40px; text-align: center; padding: 16px 16px; vertical-align: middle;">
-                            <input type="checkbox" class="row-selector" data-id="{{ listing.id }}" onchange="onRowSelectChange()" style="accent-color: var(--green); cursor: pointer; width: 14px; height: 14px; border-radius: 4px; border: 1px solid var(--border-2); vertical-align: middle;">
-                        </td>
-                        <td>
-                            <div class="thread-cell">
-                                <a href="{{ listing.url }}" target="_blank" class="thread-title">
-                                    {% if listing.bump_due %}
-                                    <span class="due-dot" title="Bump is due"></span>
-                                    {% endif %}
-                                    {{ listing.title }}
-                                </a>
-                                <span class="thread-id-sub">Thread ID: {{ listing.thread_id }}</span>
-                            </div>
-                        </td>
-                        <td>
-                            {% if listing.category %}
-                            <span class="badge badge-gray">{{ listing.category }}</span>
-                            {% else %}
-                            <span class="text-muted" style="color:var(--text-muted)">—</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if listing.price %}
-                            <span style="font-family:var(--mono);font-weight:600">{{ listing.price }}</span>
-                            {% else %}
-                            <span class="text-muted" style="color:var(--text-muted)">—</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if listing.status == 'active' %}
-                            <span class="badge badge-green">Active</span>
-                            {% elif listing.status == 'paused' %}
-                            <span class="badge badge-yellow">Paused</span>
-                            {% elif listing.status == 'sold' %}
-                            <span class="badge badge-red">Sold</span>
-                            {% else %}
-                            <span class="badge badge-gray">Unknown</span>
-                            {% endif %}
-                        </td>
-                        <td id="time-{{ listing.id }}" style="font-family:var(--mono);font-size:0.85rem">
-                            {{ listing.time_since_bump }}
-                        </td>
-                        <td>
-                            <div style="display: flex; align-items: center; gap: 6px;">
-                                <input type="number" 
-                                       class="interval-value" 
-                                       value="{{ listing.interval_value_and_unit.0 }}" 
-                                       style="width: 56px; background-color: var(--panel-2); border: 1px solid var(--border-2); color: var(--text); border-radius: 6px; padding: 4px 6px; font-family: var(--mono); font-size: 0.85rem; text-align: center;" 
-                                       min="1" 
-                                       id="interval-val-{{ listing.id }}"
-                                       onchange="changeRowInterval({{ listing.id }})">
-                                <select class="interval-unit" 
-                                        style="background-color: var(--panel-2); border: 1px solid var(--border-2); color: var(--text-dim); border-radius: 6px; padding: 4px 6px; font-size: 0.8rem; font-weight: 500;"
-                                        id="interval-unit-{{ listing.id }}"
-                                        onchange="changeRowInterval({{ listing.id }})">
-                                    <option value="seconds" {% if listing.interval_value_and_unit.1 == 'seconds' %}selected{% endif %}>sec</option>
-                                    <option value="minutes" {% if listing.interval_value_and_unit.1 == 'minutes' %}selected{% endif %}>min</option>
-                                    <option value="hours" {% if listing.interval_value_and_unit.1 == 'hours' %}selected{% endif %}>hours</option>
-                                    <option value="days" {% if listing.interval_value_and_unit.1 == 'days' %}selected{% endif %}>days</option>
-                                </select>
-                            </div>
-                        </td>
-                        <td id="count-{{ listing.id }}" style="font-family:var(--mono);text-align:center;font-weight:500; vertical-align: middle;">
-                            <div style="display: flex; align-items: center; justify-content: center; gap: 6px;">
-                                <span class="badge {% if listing.bumps_last_24h >= 4 %}badge-red{% elif listing.bumps_last_24h >= 3 %}badge-yellow{% else %}badge-green{% endif %}" style="font-size:0.75rem; font-weight:600; padding: 2px 8px; border-radius: 12px; letter-spacing: 0.2px;" id="count-24h-badge-{{ listing.id }}">
-                                    {{ listing.bumps_last_24h }}/4
-                                </span>
-                                <span style="font-size:0.75rem; color:var(--text-dim);" id="count-total-span-{{ listing.id }}">
-                                    ({{ listing.bump_count }})
-                                </span>
-                            </div>
-                        </td>
-                        <td>
-                            <label class="switch">
-                                <input type="checkbox" {% if listing.bump_enabled %}checked{% endif %} onchange="toggleListing({{ listing.id }}, this)">
-                                <span class="slider"></span>
-                            </label>
-                        </td>
-                        <td style="text-align: right; position: relative;">
-                            <button id="btn-bump-{{ listing.id }}" class="btn btn-sm" onclick="bumpSingle({{ listing.id }})" {% if not listing.bump_enabled or listing.status != 'active' or listing.bumps_last_24h >= 4 %}disabled{% endif %}>
-                                <span>Bump Now</span>
-                            </button>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                {% else %}
-                    <tr>
-                        <td colspan="10">
-                            <div class="empty-state">
-                                No threads found. Click "Refresh Listings" above to scan PlayerUp.
-                            </div>
-                        </td>
-                    </tr>
-                {% endif %}
+                <!-- Loaded dynamically by client-side Javascript paging -->
             </tbody>
         </table>
+    </div>
+    <!-- Premium Client-Side Pagination Controls -->
+    <div class="pagination-bar" style="display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; border-top: 1px solid var(--border); background-color: var(--panel-2); flex-wrap: wrap; gap: 12px; font-size: 0.9rem; color: var(--text-dim);">
+        <div id="paginationInfo">
+            Showing 0 to 0 of 0 threads
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+            <button id="btnPrevPage" class="btn btn-sm" onclick="prevPage()" style="padding: 6px 12px; font-weight: 600; background-color: var(--panel); border: 1px solid var(--border); color: var(--text); outline: none;">
+                Previous
+            </button>
+            <span id="currentPageNum" style="font-family: var(--mono); font-weight: 600; color: var(--text); padding: 0 8px;">
+                1 / 1
+            </span>
+            <button id="btnNextPage" class="btn btn-sm" onclick="nextPage()" style="padding: 6px 12px; font-weight: 600; background-color: var(--panel); border: 1px solid var(--border); color: var(--text); outline: none;">
+                Next
+            </button>
+        </div>
     </div>
 </div>
 
@@ -553,6 +474,13 @@
 
 {% block extra_js %}
 <script>
+    // PARSED LISTINGS DATA FROM SERVER
+    const allListings = {{ listings_json|safe }};
+    const selectedIds = new Set();
+    let currentPage = 1;
+    const pageSize = 50;
+    let filteredListings = [...allListings];
+
     // UTILITY COUNTDOWN DELAY TIMER
     function sleepWithCountdown(seconds, buttonEl, originalHTML) {
         return new Promise((resolve) => {
@@ -581,16 +509,20 @@
     // AJAX MANUAL BUMP INDIVIDUAL
     async function bumpSingle(id, triggerType = 'manual') {
         const btn = document.getElementById(`btn-bump-${id}`);
-        if (!btn || btn.disabled) return;
-        
-        btn.classList.add('loading');
-        btn.disabled = true;
+        if (btn) {
+            btn.classList.add('loading');
+            btn.disabled = true;
+        }
         
         return new Promise(async (resolve) => {
             try {
-                const row = document.getElementById(`row-${id}`);
-                const titleLink = row.querySelector('.thread-title');
-                const url = titleLink.href;
+                const item = allListings.find(l => l.id === id);
+                if (!item) {
+                    showToast("Listing not found in memory.", "error");
+                    resolve();
+                    return;
+                }
+                const url = item.url;
                 
                 const width = 150, height = 150;
                 const left = window.screen.width - width;
@@ -608,6 +540,11 @@
                     const data = await post(`/bump/${id}/`);
                     if (data.success) {
                         showToast(data.message, 'success');
+                        item.bumps_last_24h += 1;
+                        item.bump_count += 1;
+                        item.last_bumped_str = "just now";
+                        item.bump_due = false;
+                        filterAndSortListings();
                     } else {
                         showToast(data.message, 'error');
                     }
@@ -637,38 +574,14 @@
                             // Re-fetch live dashboard statistics
                             await fetchLiveStatus();
                             
-                            // Visually update the listing row data
-                            const badgeEl = document.getElementById(`count-24h-badge-${id}`);
-                            const totalEl = document.getElementById(`count-total-span-${id}`);
-                            if (badgeEl) {
-                                const current24h = parseInt(badgeEl.innerText.split('/')[0] || '0');
-                                const new24h = current24h + 1;
-                                badgeEl.innerText = `${new24h}/4`;
-                                
-                                badgeEl.className = "badge";
-                                if (new24h >= 4) {
-                                    badgeEl.classList.add('badge-red');
-                                    const bumpBtn = document.getElementById(`btn-bump-${id}`);
-                                    if (bumpBtn) bumpBtn.disabled = true;
-                                } else if (new24h >= 3) {
-                                    badgeEl.classList.add('badge-yellow');
-                                } else {
-                                    badgeEl.classList.add('badge-green');
-                                }
-                            }
-                            if (totalEl) {
-                                const currentTotal = parseInt(totalEl.innerText.replace('(', '').replace(')', '') || '0');
-                                totalEl.innerText = `(${currentTotal + 1})`;
-                            }
-                            const timeEl = document.getElementById(`time-${id}`);
-                            if (timeEl) {
-                                timeEl.innerText = "just now";
-                            }
+                            // Visually update the listing row data in memory
+                            item.bumps_last_24h += 1;
+                            item.bump_count += 1;
+                            item.last_bumped_str = "just now";
+                            item.bump_due = false;
                             
-                            row.classList.remove('tag-due');
-                            const dueDot = row.querySelector('.due-dot');
-                            if (dueDot) dueDot.remove();
-                            
+                            // Re-render
+                            filterAndSortListings();
                             resolve();
                         }
                     }, 500);
@@ -677,18 +590,20 @@
                 showToast(`Bump trigger failed: ${err.message}`, 'error');
                 resolve();
             } finally {
-                setTimeout(() => {
-                    btn.classList.remove('loading');
-                    btn.disabled = false;
-                }, 6000);
+                if (btn) {
+                    setTimeout(() => {
+                        btn.classList.remove('loading');
+                        btn.disabled = false;
+                    }, 6000);
+                }
             }
         });
     }
 
     // AJAX SEQUENCE MANUAL BUMP ALL DUE LISTINGS
     async function bumpAll() {
-        const dueRows = document.querySelectorAll('.listing-row.tag-due');
-        if (dueRows.length === 0) {
+        const dueItems = allListings.filter(l => l.bump_due);
+        if (dueItems.length === 0) {
             showToast("No listings currently require a bump.", 'success');
             return;
         }
@@ -697,17 +612,16 @@
         btnAll.disabled = true;
         btnAll.innerText = "Processing Bumps...";
         
-        showToast(`Starting sequential bumps for ${dueRows.length} threads. Please wait.`, 'success');
+        showToast(`Starting sequential bumps for ${dueItems.length} threads. Please wait.`, 'success');
         
-        for (let i = 0; i < dueRows.length; i++) {
-            const row = dueRows[i];
-            const id = row.getAttribute('data-id');
-            showToast(`Bumping thread ${i + 1} of ${dueRows.length}...`, 'success');
+        for (let i = 0; i < dueItems.length; i++) {
+            const item = dueItems[i];
+            const id = item.id;
+            showToast(`Bumping thread ${i + 1} of ${dueItems.length}...`, 'success');
             await bumpSingle(id);
-            // Add safe human-like anti-flood delay (30 to 45 seconds) before proceeding to next listing
-            if (i < dueRows.length - 1) {
+            if (i < dueItems.length - 1) {
                 const delaySeconds = Math.floor(Math.random() * 15) + 30; // 30 to 45 seconds safety delay
-                showToast(`Bumping sequential thread ${i + 2} of ${dueRows.length} in ${delaySeconds} seconds.`, 'success');
+                showToast(`Bumping sequential thread ${i + 2} of ${dueItems.length} in ${delaySeconds} seconds.`, 'success');
                 const originalHTML = `
                     <svg style="width:16px;height:16px;fill:currentColor" viewBox="0 0 24 24">
                         <path d="M12 2L2 22h20L12 2zm0 3.99L19.53 19H4.47L12 5.99zM11 10v4h2v-4h-2zm0 6v2h2v-2h-2z"/>
@@ -735,13 +649,12 @@
             const data = await post(`/toggle/${id}/`);
             showToast(`Auto-bumping ${data.bump_enabled ? 'enabled' : 'disabled'} for this thread.`, 'success');
             
-            // Toggle corresponding row button state
-            const btn = document.getElementById(`btn-bump-${id}`);
-            if (btn) {
-                const badge24h = document.getElementById(`count-24h-badge-${id}`);
-                const current24h = badge24h ? parseInt(badge24h.innerText.split('/')[0] || '0') : 0;
-                btn.disabled = !data.bump_enabled || current24h >= 4;
+            const item = allListings.find(l => l.id === id);
+            if (item) {
+                item.bump_enabled = data.bump_enabled;
             }
+            
+            filterAndSortListings();
             await fetchLiveStatus();
         } catch (err) {
             showToast(`Toggle failed: ${err.message}`, 'error');
@@ -776,6 +689,12 @@
 
             if (res.success) {
                 showToast(`Interval updated. Next bump scheduled for ${res.next_due}`, "success");
+                const item = allListings.find(l => l.id === id);
+                if (item) {
+                    item.interval_val = value;
+                    item.interval_unit = unit;
+                }
+                filterAndSortListings();
                 await fetchLiveStatus();
             } else {
                 showToast(`Update failed: ${res.message}`, "error");
@@ -788,33 +707,47 @@
         }
     }
 
-    // SELECT / DESELECT ALL LISTINGS (FILTER-AWARE)
+    // SELECT / DESELECT ALL LISTINGS (FILTER-AWARE & PAGINATION-AWARE)
     function toggleSelectAll(master) {
-        const rows = document.querySelectorAll('#listingsTableBody tr.listing-row');
-        rows.forEach(row => {
-            if (row.style.display !== 'none') {
-                const cb = row.querySelector('.row-selector');
-                if (cb) {
-                    cb.checked = master.checked;
-                }
+        const startIndex = (currentPage - 1) * pageSize;
+        const endIndex = Math.min(startIndex + pageSize, filteredListings.length);
+        const pageData = filteredListings.slice(startIndex, endIndex);
+
+        pageData.forEach(l => {
+            if (master.checked) {
+                selectedIds.add(l.id);
+            } else {
+                selectedIds.delete(l.id);
             }
         });
+        
+        renderListingsTable();
         onRowSelectChange();
     }
 
     // DYNAMIC BULK ACTION PANEL DISPLAY
-    function onRowSelectChange() {
-        const checkboxes = document.querySelectorAll('.row-selector:checked');
-        const count = checkboxes.length;
+    function onRowSelectChange(id, checkbox) {
+        if (id !== undefined && checkbox !== undefined) {
+            if (checkbox.checked) {
+                selectedIds.add(id);
+            } else {
+                selectedIds.delete(id);
+            }
+        }
+
+        const count = selectedIds.size;
         const panel = document.getElementById('bulkActionsPanel');
         const countSpan = document.getElementById('selectedCount');
+        const btnBulk = document.getElementById('btnBulkUpdate');
 
         if (count > 0) {
-            panel.style.display = 'flex';
-            countSpan.innerText = count;
+            if (panel) panel.style.display = 'flex';
+            if (countSpan) countSpan.innerText = count;
+            if (btnBulk) btnBulk.innerText = `Update Selected ( ${count} )`;
         } else {
-            panel.style.display = 'none';
-            countSpan.innerText = '0';
+            if (panel) panel.style.display = 'none';
+            if (countSpan) countSpan.innerText = '0';
+            if (btnBulk) btnBulk.innerText = `Update Selected ( 0 )`;
             
             const master = document.getElementById('selectAllListings');
             if (master) master.checked = false;
@@ -823,13 +756,12 @@
 
     // AJAX BULK INTERVAL UPDATE
     async function applyBulkInterval() {
-        const checkedBoxes = document.querySelectorAll('.row-selector:checked');
-        if (checkedBoxes.length === 0) {
+        if (selectedIds.size === 0) {
             showToast("No threads were selected for bulk update.", "error");
             return;
         }
 
-        const ids = Array.from(checkedBoxes).map(cb => parseInt(cb.getAttribute('data-id')));
+        const ids = Array.from(selectedIds);
         const bulkValEl = document.getElementById('bulkIntervalVal');
         const bulkUnitEl = document.getElementById('bulkIntervalUnit');
         const bulkAutoEl = document.getElementById('bulkAutoState');
@@ -860,44 +792,23 @@
                 showToast(res.message, "success");
 
                 ids.forEach(id => {
-                    const row = document.getElementById(`row-${id}`);
-                    if (row) {
-                        const rowValEl = document.getElementById(`interval-val-${id}`);
-                        const rowUnitEl = document.getElementById(`interval-unit-${id}`);
-                        if (rowValEl) rowValEl.value = value;
-                        if (rowUnitEl) rowUnitEl.value = unit;
-
-                        const switchEl = row.querySelector('.switch input');
-                        const statusBadge = row.querySelector('td:nth-child(5) .badge');
-                        const bumpBtn = document.getElementById(`btn-bump-${id}`);
-
+                    const item = allListings.find(l => l.id === id);
+                    if (item) {
+                        item.interval_val = value;
+                        item.interval_unit = unit;
                         if (autoState === 'enable') {
-                            if (switchEl) switchEl.checked = true;
-                            if (statusBadge) {
-                                statusBadge.className = 'badge badge-green';
-                                statusBadge.innerText = 'Active';
-                            }
-                            if (bumpBtn) {
-                                const badge24h = document.getElementById(`count-24h-badge-${id}`);
-                                const current24h = badge24h ? parseInt(badge24h.innerText.split('/')[0] || '0') : 0;
-                                bumpBtn.disabled = current24h >= 4;
-                            }
+                            item.bump_enabled = true;
+                            item.status = 'active';
                         } else if (autoState === 'disable') {
-                            if (switchEl) switchEl.checked = false;
-                            if (statusBadge) {
-                                statusBadge.className = 'badge badge-yellow';
-                                statusBadge.innerText = 'Paused';
-                            }
-                            if (bumpBtn) bumpBtn.disabled = true;
+                            item.bump_enabled = false;
+                            item.status = 'paused';
                         }
                     }
                 });
 
-                const masterCheckbox = document.getElementById('selectAllListings');
-                if (masterCheckbox) {
-                    masterCheckbox.checked = false;
-                    toggleSelectAll(masterCheckbox);
-                }
+                selectedIds.clear();
+                filterAndSortListings();
+                onRowSelectChange();
                 await fetchLiveStatus();
             } else {
                 showToast(`Bulk update failed: ${res.message}`, "error");
@@ -913,13 +824,12 @@
 
     // AJAX SEQUENTIAL 1-BY-1 BUMP SELECTED LISTINGS
     async function bumpSelectedListings() {
-        const checkedBoxes = document.querySelectorAll('.row-selector:checked');
-        if (checkedBoxes.length === 0) {
+        if (selectedIds.size === 0) {
             showToast("No threads were selected for bumping.", "error");
             return;
         }
 
-        const ids = Array.from(checkedBoxes).map(cb => parseInt(cb.getAttribute('data-id')));
+        const ids = Array.from(selectedIds);
         const btnAll = document.getElementById('btnBulkBump');
         if (!btnAll || btnAll.disabled) return;
 
@@ -945,12 +855,9 @@
             }
 
             showToast("Finished bulk bump sequence successfully!", 'success');
-
-            const masterCheckbox = document.getElementById('selectAllListings');
-            if (masterCheckbox) {
-                masterCheckbox.checked = false;
-                toggleSelectAll(masterCheckbox);
-            }
+            selectedIds.clear();
+            filterAndSortListings();
+            onRowSelectChange();
         } catch (err) {
             showToast(`Bulk bumping sequence failed: ${err.message}`, 'error');
         } finally {
@@ -973,7 +880,6 @@
         try {
             showToast("Opening PlayerUp threads list in background to bypass Cloudflare...", "success");
             
-            // Open a background tab to trigger secure extension-based scraping
             const width = 150, height = 150;
             const left = window.screen.width - width;
             const top = window.screen.height - height;
@@ -991,7 +897,6 @@
                     if (scrapeWindow.closed) {
                         clearInterval(pollInterval);
                         showToast("Successfully refreshed listings from PlayerUp!", "success");
-                        // Reload dashboard page to render newly synchronized items
                         setTimeout(() => location.reload(), 800);
                     }
                 }, 500);
@@ -1046,7 +951,6 @@
         }
     }
 
-    // Run countdown update every 1 second
     setInterval(updateNextBumpCountdown, 1000);
 
     async function fetchLiveStatus() {
@@ -1055,13 +959,11 @@
             if (!r.ok) return;
             const data = await r.json();
             
-            // Update upper status counters
             document.getElementById('statDue').innerText = data.due_count;
             document.getElementById('statToday').innerText = data.bumps_today;
             nextBumpTimestamp = data.next_bump_timestamp;
             updateNextBumpCountdown();
             
-            // Build and insert activity log panel content
             const liveLog = document.getElementById('liveLog');
             if (data.recent_logs.length === 0) {
                 liveLog.innerHTML = `<div class="empty-state" style="padding: 20px 0;">No logs are available yet.</div>`;
@@ -1087,7 +989,6 @@
             });
             liveLog.innerHTML = html;
             
-            // Sync switch state if changed from another session
             const checkbox = document.getElementById('toggleAutoBumper');
             if (checkbox && checkbox.checked !== data.browser_auto_bumper_enabled) {
                 checkbox.checked = data.browser_auto_bumper_enabled;
@@ -1098,11 +999,186 @@
         }
     }
 
+    function filterAndSortListings() {
+        const searchVal = document.getElementById('listingSearch').value.toLowerCase();
+        const platformVal = document.getElementById('platformFilter').value.toLowerCase();
+        const sortVal = document.getElementById('sortListingsSelect').value;
+
+        // 1. Filter
+        filteredListings = allListings.filter(l => {
+            const title = (l.title || '').toLowerCase();
+            const category = (l.category || '').toLowerCase();
+            const fullText = title + ' ' + category;
+
+            const matchesSearch = fullText.includes(searchVal);
+            const matchesPlatform = platformVal === '' || l.platform === platformVal;
+
+            return matchesSearch && matchesPlatform;
+        });
+
+        // 2. Sort
+        filteredListings.sort((a, b) => {
+            if (sortVal === 'default') {
+                return b.id - a.id;
+            }
+            if (sortVal === 'title-asc') {
+                return (a.title || '').localeCompare(b.title || '');
+            }
+            if (sortVal === 'title-desc') {
+                return (b.title || '').localeCompare(a.title || '');
+            }
+            if (sortVal === 'price-asc' || sortVal === 'price-desc') {
+                const priceA = parseFloat((a.price || '').replace(/[^0-9.]/g, '') || '0');
+                const priceB = parseFloat((b.price || '').replace(/[^0-9.]/g, '') || '0');
+                return sortVal === 'price-asc' ? priceA - priceB : priceB - priceA;
+            }
+            if (sortVal === 'bumps-desc') {
+                return (b.bumps_last_24h || 0) - (a.bumps_last_24h || 0);
+            }
+            if (sortVal === 'due') {
+                const dueA = a.bump_due ? 1 : 0;
+                const dueB = b.bump_due ? 1 : 0;
+                return dueB - dueA;
+            }
+            return 0;
+        });
+
+        // 3. Keep page index within bounds
+        const totalPages = Math.ceil(filteredListings.length / pageSize) || 1;
+        if (currentPage > totalPages) {
+            currentPage = totalPages;
+        }
+
+        renderListingsTable();
+    }
+
+    function renderListingsTable() {
+        const tbody = document.getElementById('listingsTableBody');
+        if (!tbody) return;
+
+        const startIndex = (currentPage - 1) * pageSize;
+        const endIndex = Math.min(startIndex + pageSize, filteredListings.length);
+        const pageData = filteredListings.slice(startIndex, endIndex);
+
+        // Update master select checkbox state
+        const master = document.getElementById('selectAllListings');
+        if (master) {
+            if (pageData.length > 0) {
+                master.checked = pageData.every(l => selectedIds.has(l.id));
+            } else {
+                master.checked = false;
+            }
+        }
+
+        if (pageData.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="10">
+                        <div class="empty-state" style="padding: 40px 0; text-align: center; color: var(--text-dim);">
+                            No threads found matching filter criteria.
+                        </div>
+                    </td>
+                </tr>
+            `;
+            updatePaginationUI(0, 0, 0);
+            return;
+        }
+
+        let html = '';
+        pageData.forEach(l => {
+            const isSelected = selectedIds.has(l.id) ? 'checked' : '';
+            const rowClass = l.bump_due ? 'listing-row tag-due' : 'listing-row';
+            const dueDot = l.bump_due ? '<span class="due-dot" title="Bump is due"></span>' : '';
+            
+            const categoryBadge = l.category ? `<span class="badge badge-gray">${l.category}</span>` : '<span class="text-muted" style="color:var(--text-muted)">—</span>';
+            const priceBadge = l.price ? `<span style="font-family:var(--mono);font-weight:600">${l.price}</span>` : '<span class="text-muted" style="color:var(--text-muted)">—</span>';
+            
+            let statusBadge = '<span class="badge badge-gray">Unknown</span>';
+            if (l.status === 'active') statusBadge = '<span class="badge badge-green">Active</span>';
+            else if (l.status === 'paused') statusBadge = '<span class="badge badge-yellow">Paused</span>';
+            else if (l.status === 'sold') statusBadge = '<span class="badge badge-red">Sold</span>';
+
+            const badgeClass = l.bumps_last_24h >= 4 ? 'badge-red' : (l.bumps_last_24h >= 3 ? 'badge-yellow' : 'badge-green');
+            const isEnabled = l.bump_enabled ? 'checked' : '';
+            const isBumpDisabled = (!l.bump_enabled || l.status !== 'active' || l.bumps_last_24h >= 4) ? 'disabled' : '';
+
+            // Selected options for intervals unit
+            const secSel = l.interval_unit === 'seconds' ? 'selected' : '';
+            const minSel = l.interval_unit === 'minutes' ? 'selected' : '';
+            const hrSel = l.interval_unit === 'hours' ? 'selected' : '';
+            const daySel = l.interval_unit === 'days' ? 'selected' : '';
+
+            html += `
+                <tr class="${rowClass}" id="row-${l.id}" data-id="${l.id}">
+                    <td style="width: 40px; text-align: center; padding: 16px 16px; vertical-align: middle;">
+                        <input type="checkbox" class="row-selector" data-id="${l.id}" onchange="onRowSelectChange(${l.id}, this)" ${isSelected} style="accent-color: var(--green); cursor: pointer; width: 14px; height: 14px; border-radius: 4px; border: 1px solid var(--border-2); vertical-align: middle;">
+                    </td>
+                    <td>
+                        <div class="thread-cell">
+                            <a href="${l.url}" target="_blank" class="thread-title">
+                                ${dueDot}${l.title}
+                            </a>
+                            <span class="thread-id-sub">Thread ID: ${l.id}</span>
+                        </div>
+                    </td>
+                    <td>${categoryBadge}</td>
+                    <td>${priceBadge}</td>
+                    <td>${statusBadge}</td>
+                    <td id="time-${l.id}" style="font-family:var(--mono);font-size:0.85rem">${l.last_bumped_str || 'Never bumped'}</td>
+                    <td>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <input type="number" 
+                                   class="interval-value" 
+                                   value="${l.interval_val}" 
+                                   style="width: 56px; background-color: var(--panel-2); border: 1px solid var(--border-2); color: var(--text); border-radius: 6px; padding: 4px 6px; font-family: var(--mono); font-size: 0.85rem; text-align: center;" 
+                                   min="1" 
+                                   id="interval-val-${l.id}"
+                                   onchange="changeRowInterval(${l.id})">
+                            <select class="interval-unit" 
+                                    style="background-color: var(--panel-2); border: 1px solid var(--border-2); color: var(--text-dim); border-radius: 6px; padding: 4px 6px; font-size: 0.8rem; font-weight: 500;"
+                                    id="interval-unit-${l.id}"
+                                    onchange="changeRowInterval(${l.id})">
+                                <option value="seconds" ${secSel}>sec</option>
+                                <option value="minutes" ${minSel}>min</option>
+                                <option value="hours" ${hrSel}>hours</option>
+                                <option value="days" ${daySel}>days</option>
+                            </select>
+                        </div>
+                    </td>
+                    <td id="count-${l.id}" style="font-family:var(--mono);text-align:center;font-weight:500; vertical-align: middle;">
+                        <div style="display: flex; align-items: center; justify-content: center; gap: 6px;">
+                          <span class="badge ${badgeClass}" style="font-size:0.75rem; font-weight:600; padding: 2px 8px; border-radius: 12px; letter-spacing: 0.2px;" id="count-24h-badge-${l.id}">
+                              ${l.bumps_last_24h}/4
+                          </span>
+                          <span style="font-size:0.75rem; color:var(--text-dim);" id="count-total-span-${l.id}">
+                              (${l.bump_count})
+                          </span>
+                        </div>
+                    </td>
+                    <td>
+                        <label class="switch">
+                            <input type="checkbox" ${isEnabled} onchange="toggleListing(${l.id}, this)">
+                            <span class="slider"></span>
+                        </label>
+                    </td>
+                    <td style="text-align: right; position: relative;">
+                        <button id="btn-bump-${l.id}" class="btn btn-sm" onclick="bumpSingle(${l.id})" ${isBumpDisabled}>
+                            <span>Bump Now</span>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+
+        tbody.innerHTML = html;
+        updatePaginationUI(startIndex + 1, endIndex, filteredListings.length);
+    }
+
     // SEARCH, PLATFORM FILTERING, & SORTING CONTROLLERS
     function populatePlatformFilter() {
         const filter = document.getElementById('platformFilter');
         if (!filter) return;
-
+        
         const platformMappings = [
             { name: 'Reddit', keywords: ['reddit'] },
             { name: 'Snapchat', keywords: ['snapchat', 'snap'] },
@@ -1116,18 +1192,12 @@
             { name: 'WhatsApp', keywords: ['whatsapp', 'wa'] },
             { name: 'LinkedIn', keywords: ['linkedin', 'linkdln'] }
         ];
+        
         const foundPlatforms = new Set();
-
-        const rows = document.querySelectorAll('#listingsTableBody tr.listing-row');
-        rows.forEach(row => {
-            const title = row.querySelector('.thread-title').textContent.trim();
-            const categoryBadge = row.querySelector('.badge-gray');
-            const category = categoryBadge ? categoryBadge.textContent.trim() : '';
-
-            const fullText = (title + ' ' + category).toLowerCase();
-
+        allListings.forEach(l => {
+            const fullText = ((l.title || '') + ' ' + (l.category || '')).toLowerCase();
             let matched = false;
-            platformMappings.forEach(p => {
+            for (let p of platformMappings) {
                 const isMatch = p.keywords.some(k => {
                     if (k.length <= 3) {
                         const regex = new RegExp('\\b' + k + '\\b|\\[' + k + '\\]|\\(' + k + '\\)', 'i');
@@ -1135,19 +1205,24 @@
                     }
                     return fullText.includes(k);
                 });
-
                 if (isMatch) {
-                    foundPlatforms.add(p.name);
-                    row.setAttribute('data-platform', p.name.toLowerCase());
+                    l.platform = p.name.toLowerCase();
+                    l.platformName = p.name;
                     matched = true;
+                    break;
                 }
-            });
-
-            if (!matched && category && category.toLowerCase() !== 'home') {
-                foundPlatforms.add(category);
-                row.setAttribute('data-platform', category.toLowerCase());
-            } else if (!matched) {
-                row.setAttribute('data-platform', 'other');
+            }
+            if (!matched) {
+                if (l.category && l.category.toLowerCase() !== 'home') {
+                    l.platform = l.category.toLowerCase();
+                    l.platformName = l.category;
+                } else {
+                    l.platform = 'other';
+                    l.platformName = 'Other';
+                }
+            }
+            if (l.platform !== 'other') {
+                foundPlatforms.add(l.platformName);
             }
         });
 
@@ -1162,73 +1237,53 @@
     }
 
     function filterListings() {
-        const searchVal = document.getElementById('listingSearch').value.toLowerCase();
-        const platformVal = document.getElementById('platformFilter').value.toLowerCase();
-        const rows = document.querySelectorAll('#listingsTableBody tr.listing-row');
-
-        rows.forEach(row => {
-            const title = row.querySelector('.thread-title').textContent.toLowerCase();
-            const categoryBadge = row.querySelector('.badge-gray');
-            const category = categoryBadge ? categoryBadge.textContent.toLowerCase() : '';
-            const fullText = title + ' ' + category;
-
-            const matchesSearch = fullText.includes(searchVal);
-            const rowPlatform = row.getAttribute('data-platform') || '';
-            const matchesPlatform = platformVal === '' || rowPlatform === platformVal;
-
-            if (matchesSearch && matchesPlatform) {
-                row.style.display = '';
-            } else {
-                row.style.display = 'none';
-                const cb = row.querySelector('.row-selector');
-                if (cb && cb.checked) {
-                    cb.checked = false;
-                }
-            }
-        });
-
-        const master = document.getElementById('selectAllListings');
-        if (master) master.checked = false;
-
-        onRowSelectChange();
+        currentPage = 1;
+        filterAndSortListings();
     }
 
     function sortListings() {
-        const sortVal = document.getElementById('sortListingsSelect').value;
-        const tbody = document.getElementById('listingsTableBody');
-        const rows = Array.from(tbody.querySelectorAll('tr.listing-row'));
+        filterAndSortListings();
+    }
 
-        rows.sort((a, b) => {
-            if (sortVal === 'default') {
-                return parseInt(a.getAttribute('data-id')) - parseInt(b.getAttribute('data-id'));
-            }
-            if (sortVal === 'title-asc') {
-                return a.querySelector('.thread-title').textContent.trim().localeCompare(b.querySelector('.thread-title').textContent.trim());
-            }
-            if (sortVal === 'title-desc') {
-                return b.querySelector('.thread-title').textContent.trim().localeCompare(a.querySelector('.thread-title').textContent.trim());
-            }
-            if (sortVal === 'price-asc' || sortVal === 'price-desc') {
-                const priceA = parseFloat(a.cells[3].textContent.replace(/[^0-9.]/g, '') || '0');
-                const priceB = parseFloat(b.cells[3].textContent.replace(/[^0-9.]/g, '') || '0');
-                return sortVal === 'price-asc' ? priceA - priceB : priceB - priceA;
-            }
-            if (sortVal === 'bumps-desc') {
-                const badgeA = a.querySelector('[id^="count-24h-badge-"]');
-                const badgeB = b.querySelector('[id^="count-24h-badge-"]');
-                const bumpsA = badgeA ? parseInt(badgeA.innerText.split('/')[0] || '0') : 0;
-                const bumpsB = badgeB ? parseInt(badgeB.innerText.split('/')[0] || '0') : 0;
-                return bumpsB - bumpsA;
-            }
-            if (sortVal === 'due') {
-                const dueA = a.classList.contains('tag-due') ? 1 : 0;
-                const dueB = b.classList.contains('tag-due') ? 1 : 0;
-                return dueB - dueA;
-            }
-            return 0;
-        });
+    function updatePaginationUI(start, end, total) {
+        const info = document.getElementById('paginationInfo');
+        if (info) {
+            info.innerText = `Showing ${start} to ${end} of ${total} threads`;
+        }
 
-        rows.forEach(row => tbody.appendChild(row));
+        const totalPages = Math.ceil(total / pageSize) || 1;
+        const numSpan = document.getElementById('currentPageNum');
+        if (numSpan) {
+            numSpan.innerText = `${currentPage} / ${totalPages}`;
+        }
+
+        const btnPrev = document.getElementById('btnPrevPage');
+        if (btnPrev) {
+            btnPrev.disabled = currentPage === 1;
+        }
+
+        const btnNext = document.getElementById('btnNextPage');
+        if (btnNext) {
+            btnNext.disabled = currentPage === totalPages;
+        }
+    }
+
+    function prevPage() {
+        if (currentPage > 1) {
+            currentPage--;
+            renderListingsTable();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    }
+
+    // CLIENT-SIDE PAGINATION TRIGGERS
+    function nextPage() {
+        const totalPages = Math.ceil(filteredListings.length / pageSize) || 1;
+        if (currentPage < totalPages) {
+            currentPage++;
+            renderListingsTable();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
     }
 
     // BROWSER-SIDE AUTO-BUMPER LOGIC
@@ -1277,6 +1332,7 @@
         }
 
         populatePlatformFilter();
+        filterAndSortListings();
         fetchLiveStatus();
         setInterval(fetchLiveStatus, 10000);
     });

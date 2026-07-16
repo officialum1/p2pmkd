@@ -14,13 +14,23 @@ def dashboard(request):
     """
     Renders the Auto-Bumper dashboard with current listings, logs, and statistics.
     """
-    listings = Listing.objects.exclude(status='requires_upgrade').order_by('-id')
+    from django.db.models import Count, Q
+    
+    cutoff = timezone.now() - timedelta(hours=24)
+    listings = Listing.objects.exclude(status='requires_upgrade').annotate(
+        bumps_24h_count=Count(
+            'bump_logs',
+            filter=Q(bump_logs__success=True, bump_logs__timestamp__gte=cutoff)
+        )
+    ).order_by('-id')
+    
     total_listings = listings.count()
     
     active_listings_qs = listings.filter(status='active', bump_enabled=True)
     active_listings = active_listings_qs.count()
     
-    due_now = sum(1 for l in active_listings_qs if l.bump_due)
+    # Calculate due now using annotated count to prevent N+1 queries
+    due_now = sum(1 for l in active_listings_qs if l.bump_enabled and l.status == 'active' and l.bumps_24h_count < 4 and (l.next_bump_due is None or timezone.now() >= l.next_bump_due))
     
     today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
     bumps_today = BumpLog.objects.filter(success=True, timestamp__gte=today_start).count()
@@ -28,14 +38,57 @@ def dashboard(request):
     recent_scrapes = ScrapeLog.objects.all()[:5]
     settings_obj = BumperSetting.current()
     
+    # Serialize listings to JSON
+    listings_data = []
+    for l in listings:
+        bumps_24h = l.bumps_24h_count
+        is_due = (
+            l.bump_enabled and 
+            l.status == 'active' and 
+            bumps_24h < 4 and 
+            (l.next_bump_due is None or timezone.now() >= l.next_bump_due)
+        )
+        
+        # Calculate effective next bump due time
+        effective_next_due = l.next_bump_due
+        if l.bump_enabled and l.status == 'active' and bumps_24h >= 4:
+            oldest_log = l.bump_logs.filter(success=True, timestamp__gte=cutoff).order_by('timestamp').first()
+            if oldest_log:
+                reset_time = oldest_log.timestamp + timedelta(hours=24)
+                if l.next_bump_due:
+                    effective_next_due = max(l.next_bump_due, reset_time)
+                else:
+                    effective_next_due = reset_time
+                    
+        val, unit = l.interval_value_and_unit
+        
+        listings_data.append({
+            'id': l.id,
+            'title': l.title,
+            'url': l.url,
+            'category': l.category,
+            'price': l.price,
+            'status': l.status,
+            'bump_enabled': l.bump_enabled,
+            'bump_count': l.bump_count,
+            'bumps_last_24h': bumps_24h,
+            'bump_due': is_due,
+            'next_bump_due': int(l.next_bump_due.timestamp()) if l.next_bump_due else None,
+            'effective_next_due': int(effective_next_due.timestamp()) if effective_next_due else None,
+            'last_bumped_str': l.time_since_bump,
+            'interval_val': val,
+            'interval_unit': unit,
+            'interval_seconds': l.bump_interval_seconds
+        })
+        
     context = {
-        'listings': listings,
         'total_listings': total_listings,
         'active_listings': active_listings,
         'bumps_today': bumps_today,
         'due_now': due_now,
         'recent_scrapes': recent_scrapes,
         'browser_auto_bumper_enabled': settings_obj.browser_auto_bumper_enabled,
+        'listings_json': json.dumps(listings_data),
     }
     return render(request, 'bumper/dashboard.html', context)
 
